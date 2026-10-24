@@ -1,0 +1,17 @@
+{
+  "checks": [
+    "Anonymous /admin shows email/password form",
+    "Customer login denied without exposing console",
+    "Owner login reaches actual admin shell",
+    "Orders show paid/available/email-delivered and pending/not-delivered distinctly",
+    "Order drawer loads timeline and download authorization",
+    "Recoverable API outage displays error while retaining prior records",
+    "Retry recovers API section without redirect or blank console",
+    "Support inbox tab loads actual component and records",
+    "Settings tab renders readiness and password-recovery link",
+    "Logout returns to password login and clears console",
+    "No uncaught browser JavaScript errors"
+  ],
+  "pageErrors": [],
+  "scope": "Actual built React UI in Chromium with synthetic API responses; no external account, real payment or email used."
+}

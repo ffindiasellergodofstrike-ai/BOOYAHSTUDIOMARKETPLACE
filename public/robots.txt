@@ -1,0 +1,15 @@
+User-agent: *
+Disallow: /admin
+Disallow: /account
+Disallow: /checkout
+Disallow: /cart
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /wishlist
+Disallow: /search
+Disallow: /api/
+Disallow: /.data/
+Disallow: /demos/
+
+Sitemap: https://www.booyahstudio.shop/sitemap.xml

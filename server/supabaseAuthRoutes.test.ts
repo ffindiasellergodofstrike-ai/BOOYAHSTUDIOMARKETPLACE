@@ -1,0 +1,62 @@
+import 'express-async-errors';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import express from 'express';
+import { once } from 'node:events';
+import { registerAuthRoutes, AuthServiceServer } from './auth';
+import { Store } from './store';
+
+test('Supabase auth HTTP lifecycle: confirmation resend, recovery ownership, replay and session invalidation', async t => {
+ const originalFetch = globalThis.fetch;
+ const keys=['SUPABASE_URL','SUPABASE_ANON_KEY','APP_URL'] as const;
+ const previous=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+ process.env.SUPABASE_URL='https://auth-test.supabase.co';process.env.SUPABASE_ANON_KEY='synthetic-anon';process.env.APP_URL='https://store.example.test';
+ let currentPassword='original-password', used=false, verifyCalls=0;
+ const requests:any[]=[];const profiles=new Map<string,any>([['buyer',{id:'buyer',email:'buyer@example.test',name:'Buyer',role:'customer'}]]);
+ const documents=new Map<string,any>();const cooldown=new Set<string>();
+ t.mock.method(Store,'getUserProfile',async (id:string)=>profiles.get(id)||null);
+ t.mock.method(Store,'setUserProfile',async (id:string,value:any)=>{profiles.set(id,value);});
+ t.mock.method(Store,'updateUserProfile',async(id:string,value:any)=>{profiles.set(id,{...profiles.get(id),...value});return profiles.get(id);});
+ t.mock.method(Store,'set',async(key:string,value:any)=>{documents.set(key,value);return value;});
+ t.mock.method(Store,'get',async(key:string)=>documents.get(key)||null);
+ t.mock.method(Store,'rpc',async(operation:string,key:string)=>{assert.equal(operation,'rate');if(cooldown.has(key))return false;cooldown.add(key);return true;});
+ const authResponse=()=>({access_token:'synthetic-access',refresh_token:'synthetic-refresh',expires_in:3600,token_type:'bearer',user:{id:'buyer',email:'buyer@example.test',email_confirmed_at:new Date().toISOString(),user_metadata:{name:'Buyer'},created_at:new Date().toISOString()}});
+ globalThis.fetch=async(input:any,init:any={})=>{
+  const url=String(input?.url||input);
+  if(!url.startsWith('https://auth-test.supabase.co/'))return originalFetch(input,init);
+  const body=init.body?JSON.parse(init.body):null;requests.push({url,body});
+  if(url.includes('/signup'))return Response.json({id:'new',email:body.email});
+  if(url.includes('/resend'))return body.email==='limited@example.test'?Response.json({msg:'Rate limit',code:'over_email_send_rate_limit'},{status:429}):Response.json({});
+  if(url.includes('/recover'))return Response.json({});
+  if(url.includes('/token'))return body.password===currentPassword?Response.json(authResponse()):Response.json({msg:'Invalid credentials',code:'invalid_credentials'},{status:400});
+  if(url.includes('/verify')){verifyCalls++;if(body.token_hash!=='valid-recovery-token'||used)return Response.json({msg:'Expired',code:'otp_expired'},{status:403});used=true;return Response.json(authResponse());}
+  if(url.includes('/user')){currentPassword=body.password;return Response.json(authResponse().user);}
+  if(url.includes('/logout'))return new Response(null,{status:204});
+  throw new Error('Unexpected Supabase request');
+ };
+ const app=express();app.use(express.json());registerAuthRoutes(app,(_req,_res,next)=>next());
+ app.use((_error:any,_req:any,res:any,_next:any)=>res.status(503).json({success:false,message:'Unavailable'}));
+ const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+ t.after(async()=>{globalThis.fetch=originalFetch;for(const key of keys){if(previous[key]===undefined)delete process.env[key];else process.env[key]=previous[key];}await new Promise<void>(r=>server.close(()=>r()));});
+ const base=`http://127.0.0.1:${(server.address() as any).port}`;
+ const post=(path:string,body:any)=>originalFetch(base+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ const registration=await post('/api/auth/register',{name:'New Buyer',email:' NEW@example.test ',mobile:'9876543210',password:'original-password',confirmPassword:'original-password'});
+ assert.equal(registration.status,201);assert.equal(registration.headers.get('set-cookie'),null);
+ const signup=requests.find(r=>r.url.includes('/signup'));assert.equal(signup.body.email,'new@example.test');assert.match(signup.url,/redirect_to=https%3A%2F%2Fstore.example.test%2Flogin/);
+ assert.equal((await post('/api/auth/login',{identifier:'9876543210',password:'original-password'})).status,400);
+ const login=await post('/api/auth/login',{identifier:' BUYER@example.test ',password:'original-password'});assert.equal(login.status,200);assert.match(login.headers.get('set-cookie')||'',/HttpOnly/);
+ const sid=(login.headers.get('set-cookie')||'').match(/sid=([^;]+)/)![1];assert.ok(await AuthServiceServer.verifyOpaqueSession(sid));
+ const resend=await post('/api/auth/resend-confirmation',{email:'buyer@example.test'});assert.equal(resend.status,200);assert.equal((await resend.json()).retryAfter,60);
+ const duplicate=await post('/api/auth/resend-confirmation',{email:'buyer@example.test'});assert.equal(duplicate.status,429);assert.equal(duplicate.headers.get('retry-after'),'60');
+ assert.equal((await post('/api/auth/resend-confirmation',{email:'limited@example.test'})).status,429);
+ const forgot=await post('/api/auth/forgot-password',{email:'buyer@example.test'});assert.equal(forgot.status,200);assert.match(requests.find(r=>r.url.includes('/recover')).url,/redirect_to=https%3A%2F%2Fstore.example.test%2Fforgot-password/);
+ assert.equal((await originalFetch(base+'/api/auth/reset-password?token_hash=valid-recovery-token')).status,404);assert.equal(verifyCalls,0,'GET must not consume recovery token');
+ assert.equal((await post('/api/auth/reset-password',{email:'buyer@example.test',mobile:'9876543210',password:'new-password'})).status,400);
+ assert.equal((await post('/api/auth/reset-password',{tokenHash:'valid-recovery-token',password:'new-password',confirmPassword:'different-password'})).status,400);assert.equal(verifyCalls,0);
+ const invalid=await post('/api/auth/reset-password',{tokenHash:'invalid-recovery-token',password:'new-password'});assert.equal(invalid.status,400);assert.equal((await invalid.json()).code,'RECOVERY_INVALID');assert.ok(await AuthServiceServer.verifyOpaqueSession(sid));
+ const reset=await post('/api/auth/reset-password',{tokenHash:'valid-recovery-token',password:'new-password',confirmPassword:'new-password'});assert.equal(reset.status,200);assert.match(reset.headers.get('set-cookie')||'',/sid=;/);assert.equal(await AuthServiceServer.verifyOpaqueSession(sid),null);
+ const resetResult=await reset.json();assert.equal(resetResult.success,true);assert.ok(!JSON.stringify(resetResult).includes('synthetic-access'));
+ assert.equal((await post('/api/auth/reset-password',{tokenHash:'valid-recovery-token',password:'another-password'})).status,400);
+ assert.equal((await post('/api/auth/login',{identifier:'buyer@example.test',password:'original-password'})).status,401);
+ assert.equal((await post('/api/auth/login',{identifier:'buyer@example.test',password:'new-password'})).status,200);
+});

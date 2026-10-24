@@ -1,0 +1,18 @@
+{
+  "checks": [
+    "Default Supabase implicit recovery fragment opens new-password and confirmation fields",
+    "Recovery credentials scrubbed from URL; opening the link makes no password-mutation request",
+    "Access and refresh credentials are absent from browser persistent storage",
+    "Mismatched passwords are rejected without an API mutation",
+    "Explicit reset sends only original access bearer plus matching passwords and returns to sign-in success state",
+    "Custom token_hash recovery also opens the password form without consuming it on page load",
+    "Server-rejected expired/reused links show a clear error, clear passwords and stop repeated submission",
+    "Request-new-link action returns to email request intentionally, without a redirect loop",
+    "Provider expiry errors render a request-new-email explanation and scrub URL material",
+    "A non-recovery fragment does not expose password-update fields",
+    "Temporary recovery API outage remains retryable without falling back to the email form",
+    "No uncaught browser JavaScript errors"
+  ],
+  "pageErrors": [],
+  "scope": "Actual built React UI in Chromium with synthetic API interception and synthetic recovery credentials; no real account, email or password was used."
+}

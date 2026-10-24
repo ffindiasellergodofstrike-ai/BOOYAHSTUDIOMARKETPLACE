@@ -1,0 +1,17 @@
+Scope: owner-release checks below; the merged GitHub update is verified in github-update.json.
+Current release verification — 23 October 2026 (India)
+Node:24.19.0
+npm run typecheck:PASS
+npm test:PASS — 129 tests;129 passed;0 failed;0 skipped
+npm run build:PASS — Vite client +36 public metadata pages +Express server bundle
+node --import tsx scripts/check-built-catalog.ts:PASS —25 product listings,80 new demo pages,4 canonical policies,private-source boundary
+Chromium admin smoke:PASS —11 checks;actual built React UI;synthetic API responses;zero uncaught JavaScript errors
+Browser checks:anonymous login;customer denied;owner access;paid/pending/email states;detail records;API-outage retention;retry recovery;support/settings;logout
+Provider HTTP/Auth responses:simulated;SQL operations run in local PGlite
+Live Supabase account,Cashfree payment/approval,Resend inbox,Vercel production deployment:NOT VERIFIED;owner credentials/configuration required
+Protected original product/design files:526 unchanged byte for byte
+Original source ZIP archives:9 unchanged byte for byte
+Private upload packages:25 checksums matched;all ZIP CRC checks passed
+Final source archive:all member CRC checks and exact source-byte comparison checked during packaging
+Excluded:dependencies,dist,build,.data,.git,caches,real .env and private-key files
+Existing large JavaScript chunk build warning remains

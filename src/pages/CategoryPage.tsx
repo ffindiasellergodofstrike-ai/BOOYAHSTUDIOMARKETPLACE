@@ -1,0 +1,24 @@
+import React, { useEffect, useState } from 'react';
+import { ArrowUpRight, Check, Layers3 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { ProductService, ProductFilters } from '../services/ProductService';
+import { CATEGORIES } from '../data/products';
+import { ProductGrid } from '../components/ProductGrid';
+import { useProductCatalog } from '../hooks/useProductCatalog';
+import { useCatalogRefresh } from '../hooks/useCatalogRefresh';
+import '../styles/catalog.css';
+export const CategoryPage: React.FC = () => {
+  const catalog = useProductCatalog();
+  const { pathParams, navigate } = useApp();
+  const { refreshing, unavailable, retry } = useCatalogRefresh();
+  const slug = pathParams.slug || 'templates';
+  const category = CATEGORIES.find(item => item.slug === slug);
+  const actualItems = catalog.filter(product => product.category === slug);
+  const label = category?.name || actualItems[0]?.categoryLabel || slug.replace(/-/g, ' ');
+  const tags = category?.featuredTags || [...new Set(actualItems.flatMap(item => item.tags || []))].slice(0, 8);
+  const [tag, setTag] = useState('');
+  useEffect(() => { setTag(''); }, [slug]);
+  const [sort, setSort] = useState<NonNullable<ProductFilters['sortBy']>>('popular');
+  const { products, total } = ProductService.searchProducts({ category: slug, tag: tag || undefined, sortBy: sort });
+  return <div className="catalog-page studio-container"><nav className="catalog-breadcrumb" aria-label="Breadcrumb"><button type="button" onClick={() => navigate('/products')}>The collection</button><span>/</span><span>{label}</span></nav><header className="catalog-heading catalog-category-heading"><div><p className="catalog-kicker"><Layers3 size={15} />YOUR NEXT STARTING POINT</p><h1>{label}<em>.</em></h1><p>{category?.description || 'A thoughtful collection of digital goods to help bring your next project to life.'}</p></div><div className="catalog-category-count"><strong>{actualItems.length.toString().padStart(2, '0')}</strong><span>{actualItems.length === 1 ? 'possibility' : 'possibilities'} to make your own</span></div></header><div className="catalog-category-toolbar"><div className="catalog-category-tags" role="group" aria-label="Filter collection by technology"><button type="button" aria-pressed={!tag} className={!tag ? 'is-active' : ''} onClick={() => setTag('')}>All {label}</button>{tags.map(item => <button key={item} type="button" aria-pressed={tag === item} className={tag === item ? 'is-active' : ''} onClick={() => setTag(tag === item ? '' : item)}>{item}</button>)}</div><button type="button" className="catalog-text-link" onClick={() => navigate('/products')}>All products<ArrowUpRight size={16} /></button></div>{refreshing && <p className="catalog-refresh" role="status"><i />Refreshing collection…</p>}{unavailable && <p className="catalog-update-note">The saved collection is available. <button type="button" disabled={refreshing} onClick={() => void retry()}>{refreshing ? 'Checking…' : 'Try again'}</button></p>}<ProductGrid products={products} totalCount={total} currentSort={sort} onSortChange={setSort} onResetFilters={() => { setTag(''); if (!actualItems.length) navigate('/products'); }} emptyTitle="Nothing in this selection yet" emptyDescription="Try another filter, or explore the rest of the collection." /><div className="catalog-bottom-note"><Check size={16} /><span>One-time purchase. Source files included. Room to make it yours.</span></div></div>;
+};

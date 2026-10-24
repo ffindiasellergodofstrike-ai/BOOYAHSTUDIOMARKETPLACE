@@ -1,0 +1,16 @@
+import React, { useState } from 'react';
+import { LayoutGrid, List, SlidersHorizontal, Search, ArrowRight } from 'lucide-react';
+import { Product } from '../types';
+import { ProductCard } from './ProductCard';
+import { useApp } from '../context/AppContext';
+import '../styles/catalog.css';
+type Sort = 'popular' | 'newest' | 'price-low' | 'price-high' | 'rating';
+interface ProductGridProps { products: Product[]; title?: string; subtitle?: string; totalCount?: number; onSortChange?: (sort: Sort) => void; currentSort?: string; allowLayoutToggle?: boolean; emptyTitle?: string; emptyDescription?: string; onResetFilters?: () => void; }
+export const ProductGrid: React.FC<ProductGridProps> = ({ products, title, subtitle, totalCount, onSortChange, currentSort = 'popular', allowLayoutToggle = true, emptyTitle = 'Nothing here just yet', emptyDescription = 'Try another search or change your filters to find your next starting point.', onResetFilters }) => {
+  const [layout, setLayout] = useState<'grid' | 'list'>('grid');
+  const { navigate } = useApp();
+  return <div className="catalog-results">
+    <div className="catalog-results-bar"><div>{title && <h2>{title}</h2>}{subtitle && <p>{subtitle}</p>}<p className="catalog-result-count" role="status"><strong>{products.length}</strong>{totalCount !== undefined && totalCount !== products.length ? ` of ${totalCount}` : ''} {products.length === 1 ? 'product' : 'products'}</p></div><div className="catalog-results-controls">{onSortChange && <label className="catalog-sort"><SlidersHorizontal size={16} aria-hidden="true" /><span className="sr-only">Sort products</span><select id="product-sort-select" value={currentSort} onChange={e => onSortChange(e.target.value as Sort)}><option value="popular">Featured first</option>{currentSort === 'featured' && <option value="featured">Featured first</option>}<option value="newest">Newest additions</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option>{(products.some(p => Number(p.rating) > 0) || currentSort === 'rating') && <option value="rating">Highest rated</option>}</select></label>}{allowLayoutToggle && <div className="catalog-layout-toggle" role="group" aria-label="Product view"><button id="grid-layout-btn" type="button" aria-label="Grid view" aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')}><LayoutGrid size={18} /></button><button id="list-layout-btn" type="button" aria-label="List view" aria-pressed={layout === 'list'} onClick={() => setLayout('list')}><List size={18} /></button></div>}</div></div>
+    {products.length ? <div className={layout === 'grid' ? 'catalog-grid' : 'catalog-list'}>{products.map(product => <ProductCard key={product.id} product={product} variant={layout} />)}</div> : <div className="catalog-empty"><span className="catalog-empty-icon"><Search size={28} strokeWidth={1.4} /></span><p className="catalog-kicker">A LITTLE ROOM TO EXPLORE</p><h2>{emptyTitle}</h2><p>{emptyDescription}</p><button type="button" className="catalog-primary" onClick={onResetFilters || (() => navigate('/products'))}>{onResetFilters ? 'Clear filters' : 'Explore the collection'}<ArrowRight size={17} /></button></div>}
+  </div>;
+};

@@ -38,8 +38,12 @@ No live credentials, private database contents or paid ZIP archives are included
 
 ## Documentation
 
+- [Agreements, Topmate comparison and gateway approval risks](docs/marketplace/TOPMATE-AND-PAYMENT-READINESS.md)
+- [Release validation](docs/marketplace/VALIDATION.md)
 - [Implementation contracts](docs/marketplace/CONTRACT.md)
 - [Deployment, official provider references and activation](docs/marketplace/DEPLOYMENT.md)
 - Public Terms, Refund, Privacy, Disclaimer and Creator Agreement: `src/data/policies.json`, versioned with checkout acceptance.
 
 Platform operator: **MANISH KUMAR SONKAR**, Owner of **Booyahstudio**. Support/grievances: **connectbooyahstudio@gmail.com**, WhatsApp **+91 7393845435**. Address: **S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003**.
+
+Earlier top-level setup/audit documents were carried from the original storefront as migration background. For this independent marketplace, use the current `docs/marketplace` guides and active `creatorMarketplace`, `gatewayControl`, `gatewaySplits`, `subscriptions` and `disputeAutomation` modules. Legacy Firebase/Easebuzz-only scaffolding is retired and is not mounted.

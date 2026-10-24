@@ -1,0 +1,19 @@
+node_modules
+dist/
+.data/
+.env
+.env.*
+!.env.example
+# Archived editor metadata and generated server bundle
+.agents/
+.claude/
+.cursor/
+.paddle-agent-skills/
+.replit-artifact/
+api/index.js
+
+build/
+
+# Owner-only paid uploads and archives must not be added to a public repository.
+private-product-uploads/
+**/*.zip

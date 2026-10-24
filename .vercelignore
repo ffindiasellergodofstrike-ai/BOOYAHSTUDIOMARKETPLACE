@@ -1,0 +1,18 @@
+# Owner/customer archives and editable paid sources are not deployment inputs.
+**/*.zip
+demofiles/
+templates/
+owner-files/
+private-product-uploads/
+.data/
+# Secrets are configured in Vercel, never copied from a local environment file.
+.env
+.env.*
+# Dependencies and compiled outputs are recreated by the build.
+node_modules/
+dist/
+build/
+coverage/
+work/
+output/
+.git/

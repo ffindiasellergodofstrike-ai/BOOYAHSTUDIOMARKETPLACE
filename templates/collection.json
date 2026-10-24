@@ -1,0 +1,770 @@
+[
+  {
+    "id": "margin-portfolio",
+    "name": "Margin Portfolio",
+    "price": 699,
+    "kind": "portfolio",
+    "label": "Designer portfolio",
+    "headline": "Make space for\nyour best work.",
+    "intro": "A considered home for independent design. Selected projects, a little process, and a clear next step.",
+    "accent": "#a83e26",
+    "bg": "#f5f0e7",
+    "ink": "#302b28",
+    "style": "editorial",
+    "tags": [
+      "Portfolio",
+      "Brand",
+      "Web"
+    ],
+    "records": [
+      [
+        "Outline study",
+        "Brand",
+        "An identity built around a single continuous line."
+      ],
+      [
+        "A slower web",
+        "Web",
+        "A quiet digital reading experience."
+      ],
+      [
+        "Common ground",
+        "Brand",
+        "A visual system for a neighbourhood project."
+      ],
+      [
+        "Open edition",
+        "Web",
+        "An independent publication concept."
+      ]
+    ],
+    "tool": "Filterable project archive with full project notes"
+  },
+  {
+    "id": "clay-shelf",
+    "name": "Clay Shelf",
+    "price": 799,
+    "kind": "shop",
+    "label": "Ceramics storefront",
+    "headline": "Objects for\neveryday rituals.",
+    "intro": "Warm shapes. Useful details. A small collection of objects that make a table feel like home.",
+    "accent": "#80452f",
+    "bg": "#f2e8db",
+    "ink": "#362b23",
+    "style": "soft",
+    "tags": [
+      "All",
+      "Cups",
+      "Bowls"
+    ],
+    "records": [
+      [
+        "Daybreak cup",
+        "Cups",
+        420
+      ],
+      [
+        "Pebble bowl",
+        "Bowls",
+        680
+      ],
+      [
+        "Loop mug",
+        "Cups",
+        540
+      ],
+      [
+        "Wide serving bowl",
+        "Bowls",
+        980
+      ]
+    ],
+    "tool": "Editable local cart with quantity controls and subtotal"
+  },
+  {
+    "id": "line-and-space",
+    "name": "Line and Space",
+    "price": 1499,
+    "kind": "architecture",
+    "label": "Architecture portfolio",
+    "headline": "Spaces shaped\nby everyday life.",
+    "intro": "A project archive for practices that care about light, material and the way a space is used.",
+    "accent": "#545f38",
+    "bg": "#f1f2ec",
+    "ink": "#202921",
+    "style": "architect",
+    "tags": [
+      "All",
+      "Residential",
+      "Public"
+    ],
+    "records": [
+      [
+        "Courtyard study",
+        "Residential",
+        "A compact home organised around an open centre."
+      ],
+      [
+        "Reading room",
+        "Public",
+        "A neighbourhood room with a generous threshold."
+      ],
+      [
+        "Garden studio",
+        "Residential",
+        "A flexible workspace at the edge of a garden."
+      ],
+      [
+        "Shared workshop",
+        "Public",
+        "A modular space for making and learning."
+      ]
+    ],
+    "tool": "Project type filtering and expandable project notes"
+  },
+  {
+    "id": "first-light",
+    "name": "First Light",
+    "price": 250,
+    "kind": "launch",
+    "label": "Product launch page",
+    "headline": "One good idea.\nA clear beginning.",
+    "intro": "Introduce a small digital product with a focused page, transparent plans and answers people can find.",
+    "accent": "#5b35b5",
+    "bg": "#f0ecfb",
+    "ink": "#27203c",
+    "style": "centered",
+    "tags": [
+      "Launch",
+      "SaaS"
+    ],
+    "records": [
+      [
+        "Starter",
+        "A focused beginning",
+        19
+      ],
+      [
+        "Studio",
+        "More room to create",
+        39
+      ],
+      [
+        "Team",
+        "Shared creative space",
+        69
+      ]
+    ],
+    "tool": "Monthly/yearly illustrative plan switch and FAQ accordion"
+  },
+  {
+    "id": "lesson-path",
+    "name": "Lesson Path",
+    "price": 1800,
+    "kind": "learning",
+    "label": "Learning directory",
+    "headline": "A little progress.\nEvery single day.",
+    "intro": "An organised course frontend for short lessons, useful notes and a visible sense of progress.",
+    "accent": "#185f62",
+    "bg": "#eaf3f0",
+    "ink": "#163638",
+    "style": "learning",
+    "tags": [
+      "All",
+      "Design",
+      "Code"
+    ],
+    "records": [
+      [
+        "Build a visual hierarchy",
+        "Design",
+        "Read: contrast, spacing and type can establish a clear reading order. Exercise: arrange three headings using only size and weight."
+      ],
+      [
+        "Your first semantic page",
+        "Code",
+        "Read: use header, main and footer to describe a page. Exercise: outline a page with one h1 and descriptive links."
+      ],
+      [
+        "Create a spacing system",
+        "Design",
+        "Read: repeated spacing builds rhythm. Exercise: use a 4, 8, 16 and 32 pixel scale for a simple card."
+      ],
+      [
+        "Accessible form basics",
+        "Code",
+        "Read: every input needs a visible label. Exercise: connect a label and input using matching for and id attributes."
+      ]
+    ],
+    "tool": "Four original micro-lessons with locally saved completion progress"
+  },
+  {
+    "id": "orbit-board",
+    "name": "Orbit Board",
+    "price": 6300,
+    "kind": "board",
+    "label": "Project board workspace",
+    "headline": "Less chasing.\nMore making.",
+    "intro": "Give your next project a calm workspace. Capture tasks, move the work forward and keep your data portable.",
+    "accent": "#354bb1",
+    "bg": "#eef0fa",
+    "ink": "#20294c",
+    "style": "dashboard",
+    "tags": [
+      "Productivity",
+      "Dashboard"
+    ],
+    "records": [
+      [
+        "Define the launch scope",
+        "Backlog"
+      ],
+      [
+        "Sketch the homepage",
+        "In progress"
+      ],
+      [
+        "Write the project brief",
+        "Done"
+      ]
+    ],
+    "tool": "Task creation, lane movement, deletion, local persistence and JSON export"
+  },
+  {
+    "id": "clear-quote",
+    "name": "Clear Quote",
+    "price": 4300,
+    "kind": "quote",
+    "label": "Quotation workspace",
+    "headline": "Good work starts\nwith a clear scope.",
+    "intro": "Turn a short scope into a readable estimate. Add line items, choose quantities and print a client-ready quotation.",
+    "accent": "#16614c",
+    "bg": "#edf2ec",
+    "ink": "#21372e",
+    "style": "paper",
+    "tags": [
+      "Business",
+      "Tools"
+    ],
+    "records": [
+      [
+        "Discovery workshop",
+        1,
+        1500
+      ],
+      [
+        "Page design",
+        3,
+        2200
+      ]
+    ],
+    "tool": "Dynamic quote rows, quantity/rate calculations and print stylesheet"
+  },
+  {
+    "id": "pocket-page",
+    "name": "Pocket Page",
+    "price": 199,
+    "kind": "links",
+    "label": "Creator link hub",
+    "headline": "A small page.\nYour whole world.",
+    "intro": "A personal corner of the web for a few good links, your latest work and a way to get in touch.",
+    "accent": "#8d365c",
+    "bg": "#f6eaf1",
+    "ink": "#422438",
+    "style": "pocket",
+    "tags": [
+      "Creator",
+      "Portfolio"
+    ],
+    "records": [
+      [
+        "Selected work",
+        "work.html",
+        "A closer look at the projects"
+      ],
+      [
+        "About this space",
+        "about.html",
+        "The story behind the page"
+      ],
+      [
+        "Start a conversation",
+        "contact.html",
+        "Make the next connection"
+      ]
+    ],
+    "tool": "Searchable link cards and a persistent light/dark theme"
+  },
+  {
+    "id": "gather-agenda",
+    "name": "Gather Agenda",
+    "price": 299,
+    "kind": "agenda",
+    "label": "Event programme",
+    "headline": "A day to meet.\nIdeas to keep.",
+    "intro": "Make a small gathering easy to explore, with a readable programme and a personal saved-session list.",
+    "accent": "#ab402b",
+    "bg": "#fff0db",
+    "ink": "#452f23",
+    "style": "poster",
+    "tags": [
+      "All",
+      "Talk",
+      "Workshop"
+    ],
+    "records": [
+      [
+        "Opening conversations",
+        "Talk",
+        "09:30"
+      ],
+      [
+        "Make a paper prototype",
+        "Workshop",
+        "11:00"
+      ],
+      [
+        "Designing with constraints",
+        "Talk",
+        "13:30"
+      ],
+      [
+        "A shared sketchbook",
+        "Workshop",
+        "15:00"
+      ]
+    ],
+    "tool": "Session-type filter and locally saved personal agenda"
+  },
+  {
+    "id": "leaf-counter",
+    "name": "Leaf Counter",
+    "price": 899,
+    "kind": "plants",
+    "label": "Plant shop frontend",
+    "headline": "A greener corner\nstarts right here.",
+    "intro": "A welcoming shop layout for a thoughtfully chosen collection, with useful care notes beside every plant.",
+    "accent": "#3f652a",
+    "bg": "#edf0df",
+    "ink": "#273622",
+    "style": "botanical",
+    "tags": [
+      "All",
+      "Low light",
+      "Bright light"
+    ],
+    "records": [
+      [
+        "Desk fern",
+        "Low light",
+        450
+      ],
+      [
+        "Window vine",
+        "Bright light",
+        620
+      ],
+      [
+        "Quiet palm",
+        "Low light",
+        890
+      ],
+      [
+        "Sunleaf pot",
+        "Bright light",
+        370
+      ]
+    ],
+    "tool": "Light-condition filters, cart controls and transparent sample pricing"
+  },
+  {
+    "id": "table-notes",
+    "name": "Table Notes",
+    "price": 599,
+    "kind": "menu",
+    "label": "Café menu",
+    "headline": "Pull up a chair.\nStay a little longer.",
+    "intro": "A readable digital menu for a neighbourhood café, from a first morning coffee to a slow afternoon plate.",
+    "accent": "#993726",
+    "bg": "#f6edda",
+    "ink": "#38291f",
+    "style": "menu",
+    "tags": [
+      "All",
+      "Drinks",
+      "Plates"
+    ],
+    "records": [
+      [
+        "Filter coffee",
+        "Drinks",
+        140,
+        "Vegetarian"
+      ],
+      [
+        "Citrus iced tea",
+        "Drinks",
+        170,
+        "Vegan"
+      ],
+      [
+        "Roasted vegetable toast",
+        "Plates",
+        280,
+        "Vegan"
+      ],
+      [
+        "Herb cheese sandwich",
+        "Plates",
+        320,
+        "Vegetarian"
+      ]
+    ],
+    "tool": "Menu search, category filters and dietary labels"
+  },
+  {
+    "id": "frame-study",
+    "name": "Frame Study",
+    "price": 1299,
+    "kind": "gallery",
+    "label": "Visual artist portfolio",
+    "headline": "Observe. Arrange.\nSee it differently.",
+    "intro": "An image-led portfolio with an original abstract study collection, designed to give each piece room to breathe.",
+    "accent": "#ced661",
+    "bg": "#171b20",
+    "ink": "#f3f4e9",
+    "style": "gallery",
+    "tags": [
+      "All",
+      "Form",
+      "Colour"
+    ],
+    "records": [
+      [
+        "Study in arcs",
+        "Form",
+        "An exploration of repeated curves."
+      ],
+      [
+        "Offset horizon",
+        "Colour",
+        "Two fields of colour, slightly out of step."
+      ],
+      [
+        "Folded light",
+        "Form",
+        "A geometry study in three planes."
+      ],
+      [
+        "Evening balance",
+        "Colour",
+        "Warm and cool shapes in conversation."
+      ]
+    ],
+    "tool": "Keyboard-accessible artwork dialog with next/previous navigation"
+  },
+  {
+    "id": "field-journal",
+    "name": "Field Journal",
+    "price": 999,
+    "kind": "journal",
+    "label": "Editorial journal",
+    "headline": "Take the long way.\nNotice the details.",
+    "intro": "An editorial space for small observations, walking notes and stories worth returning to.",
+    "accent": "#496444",
+    "bg": "#f0ecdf",
+    "ink": "#2b3529",
+    "style": "journal",
+    "tags": [
+      "All",
+      "Places",
+      "Practice"
+    ],
+    "records": [
+      [
+        "The art of a slow morning",
+        "Practice",
+        "Leave a little room before the first task. Open a window, write down one observation and let the day begin without a hurry. This short sample is original editorial placeholder copy."
+      ],
+      [
+        "A map made from memory",
+        "Places",
+        "Draw a familiar route without looking at a map. Notice which corners, trees and thresholds remain. These small details tell a different story from a measured distance."
+      ],
+      [
+        "Keep a field notebook",
+        "Practice",
+        "A notebook can hold sketches, questions and unfinished thoughts. Give each page a date, but leave room for an idea to change."
+      ],
+      [
+        "A walk around the block",
+        "Places",
+        "Choose a short route and a single thing to notice: doorways, shadows or signs of new growth. Return another day and compare your notes."
+      ]
+    ],
+    "tool": "Full article reading dialog, search and saved reading list"
+  },
+  {
+    "id": "scope-studio",
+    "name": "Scope Studio",
+    "price": 2299,
+    "kind": "agency",
+    "label": "Creative studio site",
+    "headline": "Small team energy.\nThoughtful outcomes.",
+    "intro": "A clear introduction to a creative practice, with a useful scope builder that helps start better conversations.",
+    "accent": "#bfea51",
+    "bg": "#1e2828",
+    "ink": "#f2f5e8",
+    "style": "agency",
+    "tags": [
+      "Business",
+      "Agency"
+    ],
+    "records": [
+      [
+        "Brand direction",
+        8500
+      ],
+      [
+        "Landing page",
+        6500
+      ],
+      [
+        "Content kit",
+        3500
+      ],
+      [
+        "Design handoff",
+        2000
+      ]
+    ],
+    "tool": "Interactive project-scope estimator and copyable enquiry summary"
+  },
+  {
+    "id": "room-palette",
+    "name": "Room Palette",
+    "price": 1599,
+    "kind": "interiors",
+    "label": "Interior moodboard",
+    "headline": "Find the feeling\nbefore the furniture.",
+    "intro": "A visual starting point for room ideas: layered colours, material notes and a palette to make your own.",
+    "accent": "#92583e",
+    "bg": "#efe8dd",
+    "ink": "#443128",
+    "style": "interiors",
+    "tags": [
+      "All",
+      "Warm",
+      "Cool"
+    ],
+    "records": [
+      [
+        "Linen and clay",
+        "Warm",
+        "#ba7d59"
+      ],
+      [
+        "Moss and stone",
+        "Cool",
+        "#718470"
+      ],
+      [
+        "Ochre and oak",
+        "Warm",
+        "#c29b43"
+      ],
+      [
+        "Mist and slate",
+        "Cool",
+        "#7d95a2"
+      ]
+    ],
+    "tool": "Selectable colour moodboard with local saving and CSS palette export"
+  },
+  {
+    "id": "audio-notebook",
+    "name": "Audio Notebook",
+    "price": 1199,
+    "kind": "podcast",
+    "label": "Podcast editorial site",
+    "headline": "Good conversations\nleave a little echo.",
+    "intro": "An editorial home for an independent show: episode summaries, readable transcripts and a saved listening list.",
+    "accent": "#9e5028",
+    "bg": "#f6ebdb",
+    "ink": "#382d28",
+    "style": "podcast",
+    "tags": [
+      "All",
+      "Process",
+      "Ideas"
+    ],
+    "records": [
+      [
+        "Start before you are ready",
+        "Process",
+        "In this sample episode outline, a maker discusses starting with a small experiment, keeping notes and changing direction when an idea teaches you something. No audio recording is included."
+      ],
+      [
+        "The useful constraint",
+        "Ideas",
+        "A sample conversation outline about choosing one material, one audience and one clear purpose. The transcript demonstrates the reading layout; no guest endorsements or recordings are implied."
+      ],
+      [
+        "Keep the first sketch",
+        "Process",
+        "An original episode note about retaining early sketches as a record of decisions, rather than a measure of perfection."
+      ],
+      [
+        "Room for curiosity",
+        "Ideas",
+        "A sample editorial outline exploring how a question can shape a more useful creative brief."
+      ]
+    ],
+    "tool": "Episode search, transcript dialog and saved list; no licensed audio required"
+  },
+  {
+    "id": "common-calendar",
+    "name": "Common Calendar",
+    "price": 499,
+    "kind": "community",
+    "label": "Community noticeboard",
+    "headline": "Good things happen\nwhen we show up.",
+    "intro": "A friendly noticeboard for a local group, with clear event details and a personal list of plans.",
+    "accent": "#245a9b",
+    "bg": "#eaf1fa",
+    "ink": "#253650",
+    "style": "community",
+    "tags": [
+      "All",
+      "Meetup",
+      "Making"
+    ],
+    "records": [
+      [
+        "Neighbourhood sketch walk",
+        "Meetup",
+        "Saturday · 09:00"
+      ],
+      [
+        "Repair and share afternoon",
+        "Making",
+        "Sunday · 14:00"
+      ],
+      [
+        "Open notebook club",
+        "Meetup",
+        "Wednesday · 18:00"
+      ],
+      [
+        "Paper model workshop",
+        "Making",
+        "Friday · 16:00"
+      ]
+    ],
+    "tool": "Event filtering and local attendance intentions, explicitly not a booking system"
+  },
+  {
+    "id": "focus-week",
+    "name": "Focus Week",
+    "price": 2499,
+    "kind": "planner",
+    "label": "Weekly planning workspace",
+    "headline": "Make room for\nwhat matters next.",
+    "intro": "A gentle weekly workspace with enough structure to begin and enough space for plans to change.",
+    "accent": "#6a4196",
+    "bg": "#f1ecf6",
+    "ink": "#372946",
+    "style": "planner",
+    "tags": [
+      "Productivity",
+      "Tools"
+    ],
+    "records": [
+      [
+        "Outline the week",
+        "Monday"
+      ],
+      [
+        "Read one chapter",
+        "Wednesday"
+      ]
+    ],
+    "tool": "Day-based task creation, completion, deletion, local persistence and JSON export"
+  },
+  {
+    "id": "plain-handbook",
+    "name": "Plain Handbook",
+    "price": 3499,
+    "kind": "docs",
+    "label": "Documentation centre",
+    "headline": "Clear answers.\nA better first step.",
+    "intro": "A searchable handbook frontend that turns setup notes and everyday questions into an organised reading experience.",
+    "accent": "#215d8d",
+    "bg": "#edf3f8",
+    "ink": "#22364a",
+    "style": "docs",
+    "tags": [
+      "All",
+      "Getting started",
+      "Customisation"
+    ],
+    "records": [
+      [
+        "Set up your workspace",
+        "Getting started",
+        "Unzip the source package. Open the project in your text editor. Use a local static server and open index.html. No dependency installation is required."
+      ],
+      [
+        "Deploy a static page",
+        "Getting started",
+        "Import your source folder into a new Vercel project. Choose Other as the framework, leave the build command empty and use the project root as output. Replace sample content before publishing."
+      ],
+      [
+        "Change the colour system",
+        "Customisation",
+        "Open styles.css and update the variables at the beginning of the file. Keep text and background colours readable, and test both large and small viewports."
+      ],
+      [
+        "Connect your real services",
+        "Customisation",
+        "These frontend templates do not include a backend. Connect forms or payment services with server-side validation and keep all secret keys off the client."
+      ]
+    ],
+    "tool": "Searchable documentation, category navigation and expandable reading panels"
+  },
+  {
+    "id": "signal-deck",
+    "name": "Signal Deck",
+    "price": 7499,
+    "kind": "saas",
+    "label": "SaaS marketing kit",
+    "headline": "Your next release.\nExplained beautifully.",
+    "intro": "A complete static marketing starting point for a small software product, with an interactive plan calculator and product tour.",
+    "accent": "#b9e77b",
+    "bg": "#162827",
+    "ink": "#f0f8ec",
+    "style": "saas",
+    "tags": [
+      "SaaS",
+      "Business"
+    ],
+    "records": [
+      [
+        "Individual",
+        "One focused workspace",
+        290
+      ],
+      [
+        "Studio",
+        "A shared creative practice",
+        590
+      ],
+      [
+        "Organisation",
+        "More seats and shared structure",
+        990
+      ]
+    ],
+    "tool": "Seat-based plan calculator, billing toggle and interactive product-tour tabs"
+  }
+]

@@ -1,0 +1,11 @@
+# Password recovery link fix — 23 October 2026
+
+Supabase's default recovery email verifies the link with the provider and redirects to `/forgot-password#access_token=...&type=recovery`. The previous page recognized only the custom `?token_hash=...` format, so it displayed the request-email form again instead of new-password fields.
+
+The page now accepts both formats and displays New password / Confirm password. It captures credentials only in component memory, removes them from the URL/history and does not retain or submit refresh tokens. An invalid, expired or unsupported link shows an explanation and a deliberate request-new-link action. No password mutation runs on page load.
+
+For default links, the backend verifies the original JWT through the Supabase SDK and user endpoint, checks the configured issuer, identity, authenticated audience/role, expiry, signed session ID and recent OTP/recovery email authentication. A hashed-session guard atomically permits one password submission. It updates only the verified user's password with that same original bearer; no service-role password update or silent refresh is used. Store sessions are invalidated and a fresh login is required. Custom token-hash links continue using recovery OTP verification.
+
+Validation: all 135 automated tests pass, including real SDK requests to a synthetic signature-checking Auth endpoint, expired/forged/non-email sessions, identity mismatch, concurrent replay, session revocation and owner-role preservation. TypeScript, the production build with native Node API startup checks, catalog checks and diff validation pass. Chromium passed 12 recovery UI checks using the actual built React application and synthetic responses. No real recovery token, password, inbox or user account was used. Browser results are in `docs/verification/recovery-browser-results.json`.
+
+No new database migration or account registration is required. The existing store schema's atomic rate operation is used. After the deployment, reload `/forgot-password`, request a fresh email for the existing account, open its newest link and set a new password. Then sign in normally. Older links may already be consumed or expired. The current SMTP/template configuration can stay; both the default link and the documented custom link work.

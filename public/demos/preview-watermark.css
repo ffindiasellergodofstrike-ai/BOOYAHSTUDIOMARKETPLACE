@@ -1,0 +1,58 @@
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@supports (overflow: clip) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
+.ff-preview-watermark {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ff-preview-watermark > span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: 92vw;
+  transform: translate(-50%, -50%) rotate(-18deg);
+  color: rgb(100 116 139 / 14%);
+  font: 900 clamp(1.75rem, 6vw, 5rem) / 1.1 system-ui, sans-serif;
+  letter-spacing: clamp(0.08em, 1vw, 0.24em);
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 1px 1px rgb(255 255 255 / 24%);
+}
+
+.ff-preview-watermark > small {
+  position: absolute;
+  right: max(0.75rem, env(safe-area-inset-right));
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 0.5rem;
+  background: rgb(15 23 42 / 78%);
+  box-shadow: 0 4px 16px rgb(15 23 42 / 20%);
+  color: #fff;
+  font: 700 clamp(0.55rem, 1.7vw, 0.68rem) / 1.2 system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  padding: 0.45rem 0.65rem;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-preview-watermark,
+  .ff-preview-watermark * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
