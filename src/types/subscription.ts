@@ -4,7 +4,7 @@ export interface SubscriptionPlan {
  [key:string]: unknown;
  id: string; name: string; description: string; audience: 'creator' | 'customer'; creatorId?: string;
  amount: number; currency: 'INR'; interval: 'month' | 'year'; billingMode: BillingMode;
- published: boolean; productLimit?: number; features: string[]; updatedAt?: string;
+ published: boolean; productLimit?: number | null; monthlyProductLimit?: number | null; features: string[]; updatedAt?: string;
  checkoutQuote?: string;
 }
 export interface SubscriptionSummary {

@@ -155,7 +155,9 @@ app.get('/robots.txt', (_req: Request, res: Response) => {
   res.type('text/plain').send(renderRobots());
 });
 app.get('/sitemap.xml', async (_req: Request, res: Response) => {
-  res.type('application/xml').send(renderSitemap(await getProductCatalog()));
+  const [products, creatorRecords] = await Promise.all([getProductCatalog(), process.env.SUPABASE_URL ? Store.get<Record<string, any>>('marketplace/creators').catch(() => null) : Promise.resolve(null)]);
+  const creatorSlugs = Object.values(creatorRecords || {}).filter(creator => creator.status === 'approved' && /^[a-z0-9][a-z0-9-]{2,49}$/.test(creator.slug)).map(creator => creator.slug);
+  res.type('application/xml').send(renderSitemap(products, creatorSlugs));
 });
 
 app.use(seoMiddleware);

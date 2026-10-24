@@ -15,7 +15,7 @@ test('downloads reject malformed order selection before lookup and issue short-l
   process.env.SUPABASE_URL = 'https://download-fixture.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'synthetic-service-role';
   const originalFetch = globalThis.fetch;
-  let lookups = 0, listings = 0, limited = false;
+  let lookups = 0, listings = 0, limited = false, externalFileUrl = '';
   const signing: { url: string; body: any }[] = [];
   const logs: any[] = [];
   const order = {
@@ -27,6 +27,7 @@ test('downloads reject malformed order selection before lookup and issue short-l
   };
   context.mock.method(Store, 'getGlobalOrder', async () => { lookups++; return order; });
   context.mock.method(Store, 'getUserOrders', async () => { listings++; return [order]; });
+  context.mock.method(Store, 'get', async () => externalFileUrl ? { status: 'active', externalFileUrl, file: { published: true } } : null);
   context.mock.method(Store, 'rpc', async () => !limited);
   context.mock.method(Store, 'saveDownloadLog', async (_id: string, log: any) => { logs.push(log); });
   context.mock.method(globalThis, 'fetch', async (input: any, init?: RequestInit) => {
@@ -76,6 +77,13 @@ test('downloads reject malformed order selection before lookup and issue short-l
   assert.equal(logs[0].downloadUrl, undefined, 'audit stores authorization metadata, not the bearer link');
   assert.equal((await request({})).status, 200, 'optional order selection keeps valid existing callers working');
   assert.equal(listings, 1);
+  externalFileUrl = 'https://drive.google.com/uc?id=approved-product-file';
+  const external = await request({ orderId: 'order-owner' });
+  assert.equal(external.status, 200);
+  assert.equal((await external.json()).downloadUrl, externalFileUrl);
+  assert.equal(signing.length, 2, 'external delivery does not mint a public-storage URL');
+  assert.equal(logs.at(-1).event, 'EXTERNAL_DOWNLOAD_LINK_ISSUED');
+  assert.equal((await request({ orderId: 'order-owner' }, { 'x-test-user': 'another-buyer' })).status, 403);
   limited = true;
   assert.equal((await request({ orderId: 'order-owner' })).status, 429);
   assert.equal(signing.length, 2, 'rate limiting occurs before signing another URL');

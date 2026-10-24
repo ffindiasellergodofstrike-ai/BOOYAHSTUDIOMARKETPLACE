@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, Code2, Download, Layers3, LayoutGrid, LifeBuoy, Search, Sparkles, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Check, Code2, Download, Layers3, LayoutGrid, LifeBuoy, Search, Sparkles, X } from 'lucide-react';
 import { ProductCard } from '../components/ProductCard';
 import { useProductCatalog } from '../hooks/useProductCatalog';
 import { useApp } from '../context/AppContext';
@@ -45,12 +45,8 @@ export const HomePage: React.FC = () => {
           <div className="hero-checks"><span><Check size={14} /> Full source code</span><span><Check size={14} /> One-time purchase</span><span><Check size={14} /> Make it yours</span></div>
         </div>
         <div className="hero-showcase">
-          <div className="showcase-grid" aria-hidden="true" />
-          <div className="showcase-label"><span className="tiny-cross">+</span> BUILT FOR WHAT’S NEXT <span>{String(products.length).padStart(2, '0')} DIGITAL GOODS</span></div>
-          {featured && <button className="preview-window preview-main" onClick={() => navigate('/product/:slug', { slug: featured.slug })} aria-label={`Explore ${featured.title}`}><div className="browser-chrome"><span /><span /><span /><span className="browser-address">{featured.slug} / preview</span><ArrowUpRight size={12} /></div><img src={featured.image} alt={`${featured.title} design preview`} fetchPriority="high" /><div className="preview-caption"><span>{featured.title.split(' — ')[0]}<small>YOUR NEXT STARTING POINT</small></span><span className="preview-circle"><ArrowUpRight size={18} /></span></div></button>}
-          {secondary && <button className="preview-window preview-secondary" onClick={() => navigate('/product/:slug', { slug: secondary.slug })} aria-label={`Explore ${secondary.title}`}><div className="browser-chrome"><span /><span /><span /><span className="browser-address">{secondary.slug}.design</span></div><img src={secondary.image} alt={`${secondary.title} design preview`} /></button>}
-          <div className="source-sticker"><span><Code2 size={20} /></span><div>Good design. Great code.<small>Ready for your personal touch.</small></div><Check size={16} /></div>
-          <div className="showcase-bottom"><span>DESIGNED TO INSPIRE. BUILT TO CUSTOMIZE.</span><ArrowDown size={15} /></div>
+          {featured && <button className="market-featured-image" onClick={() => navigate('/product/:slug', { slug: featured.slug })} aria-label={`Explore ${featured.title}`}><img src={featured.image} alt={`${featured.title} preview`} fetchPriority="high" /><span className="market-featured-label">Featured this week <ArrowUpRight size={15}/></span></button>}
+          <div className="market-featured-copy"><div><span className="eyebrow">A GOOD PLACE TO BEGIN</span><strong>{featured?.title.split(' — ')[0] || 'Find your next idea'}</strong><span>{featured ? `₹${featured.price.toLocaleString('en-IN')} · Instant digital delivery` : 'Explore original digital products'}</span></div>{secondary && <button className="market-secondary-pick" onClick={() => navigate('/product/:slug', { slug: secondary.slug })} aria-label={`Explore ${secondary.title}`}><img src={secondary.image} alt=""/><span><small>ALSO WORTH A LOOK</small><strong>{secondary.title.split(' — ')[0]}</strong></span><ArrowUpRight size={17}/></button>}</div>
         </div>
       </section>
 

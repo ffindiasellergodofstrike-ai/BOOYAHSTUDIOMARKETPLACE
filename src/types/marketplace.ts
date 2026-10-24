@@ -45,6 +45,7 @@ export interface CreatorListing extends Omit<Product, 'status'> {
   creatorSlug: string;
   status: ListingStatus;
   membershipEligible: boolean;
+  externalFileUrl?: string | null;
   reviewReason?: string;
   createdAt: string;
   updatedAt: string;
@@ -55,6 +56,9 @@ export interface CreatorOrderSnapshot {
   sellerName: string;
   creatorSlug: string;
   commissionBps: number;
+  commissionModel?: 'flat_per_item';
+  commissionPerItemPaise?: number;
+  itemCount?: number;
   grossPaise: number;
   commissionPaise: number;
   sellerPaise: number;
@@ -70,7 +74,7 @@ export interface CreatorSummary {
   sellerPaise: number;
   refundPaise: number;
   payablePaise: number;
-  productLimit: number;
+  productLimit: number | null;
   activeProducts: number;
 }
 export interface CreatorLedgerEntry {

@@ -22,8 +22,8 @@ type BillingState = {plans:Record<string,SubscriptionPlan>; subscriptions:Record
 const idPattern=/^[A-Za-z0-9_-]{1,100}$/;
 const defaults:SubscriptionPlan[]=[
  {id:'starter',name:'Starter',description:'Start your creator journey.',audience:'creator',amount:0,currency:'INR',interval:'month',billingMode:'manual',published:true,productLimit:5,features:['5 product listings','Your own storefront','Order management']},
- {id:'creator',name:'Creator',description:'More room for your growing collection.',audience:'creator',amount:499,currency:'INR',interval:'month',billingMode:'manual',published:false,productLimit:25,features:['25 product listings','Your own storefront','Order management']},
- {id:'studio',name:'Studio',description:'A larger catalogue for established creators.',audience:'creator',amount:1499,currency:'INR',interval:'month',billingMode:'manual',published:false,productLimit:100,features:['100 product listings','Your own storefront','Order management']},
+ {id:'creator',name:'Creator',description:'Build and publish up to 10 original products every month.',audience:'creator',amount:499,currency:'INR',interval:'month',billingMode:'manual',published:true,productLimit:null,monthlyProductLimit:10,features:['Up to 10 new products per month','Standard creator tools','Your own public storefront','Order management']},
+ {id:'studio',name:'Pro',description:'Create without monthly product limits and unlock every creator feature.',audience:'creator',amount:899,currency:'INR',interval:'month',billingMode:'manual',published:true,productLimit:null,monthlyProductLimit:null,features:['Unlimited product creation','All creator features','Your own public storefront','Order management and earnings']},
 ];
 export class SubscriptionError extends Error { constructor(message:string,public status=400){super(message);} }
 /** No filesystem/Firebase fallback: a failed durable write must stop checkout. */
@@ -59,14 +59,16 @@ export function subscriptionSummary(s:SubscriptionRecord):SubscriptionSummary{
 async function publicPlans(){return process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY?values((await state()).plans):defaults;}
 export async function getCreatorPlanSummaries(){return (await publicPlans()).filter(p=>p.audience==='creator'&&p.published).map(plan=>({...plan,checkoutQuote:subscriptionCheckoutQuote(plan)}));}
 export async function getBillingAudit(){return values((await state()).audit);}
-export async function getCreatorEntitlements(userId:string):Promise<{planId:string;productLimit:number;expiresAt?:string;subscriptionId?:string}>{
+export async function getCreatorEntitlements(userId:string):Promise<{planId:string;productLimit:number|null;monthlyProductLimit:number|null;expiresAt?:string;subscriptionId?:string}>{
  const data=await state(); const starter=data.plans.starter;
- let result:{planId:string;productLimit:number;expiresAt?:string;subscriptionId?:string}={planId:'starter',productLimit:starter?.productLimit||5};
+ let result:{planId:string;productLimit:number|null;monthlyProductLimit:number|null;expiresAt?:string;subscriptionId?:string}={planId:'starter',productLimit:starter?.productLimit??5,monthlyProductLimit:starter?.monthlyProductLimit??starter?.productLimit??5};
  for(const record of values(data.subscriptions)){
   if(record.userId!==userId||record.plan.audience!=='creator') continue;
   let fresh=record;if(record.environment==='live'&&(!record.lastCheckedAt||Date.parse(record.lastCheckedAt)<Date.now()-15*60_000)){try{fresh=await reconcileSubscription(record);}catch{continue;}}
-  const period=currentPaidPeriod(fresh); if(!period||!record.plan.productLimit||record.plan.productLimit<=result.productLimit) continue;
-  result={planId:record.plan.id,productLimit:record.plan.productLimit,expiresAt:period.periodEnd,subscriptionId:record.id};
+    const period=currentPaidPeriod(fresh); if(!period) continue;
+    const monthlyProductLimit=record.plan.monthlyProductLimit===undefined?record.plan.productLimit??null:record.plan.monthlyProductLimit;
+    if(monthlyProductLimit!==null&&result.monthlyProductLimit!==null&&monthlyProductLimit<=result.monthlyProductLimit) continue;
+    result={planId:record.plan.id,productLimit:record.plan.productLimit??null,monthlyProductLimit,expiresAt:period.periodEnd,subscriptionId:record.id};
  }
  return result;
 }
@@ -99,7 +101,7 @@ export async function getCreatorMembershipEarnings(creatorId:string){
  }
  return {entries:earnings,grossPaise:earnings.reduce((sum,p)=>sum+p.grossPaise,0),commissionPaise:earnings.reduce((sum,p)=>sum+p.commissionPaise,0),payablePaise:earnings.reduce((sum,p)=>sum+p.netSellerPaise,0),refundPaise:earnings.reduce((sum,p)=>sum+p.refundedPaise,0)};
 }
-const planInput=z.object({name:z.string().trim().min(2).max(70),description:z.string().trim().max(400).default(''),audience:z.enum(['creator','customer']),creatorId:z.string().regex(idPattern).optional(),amount:z.number().min(0).max(100000).refine(v=>moneyPaise(v)!==null,'Use at most two decimal places.'),currency:z.literal('INR').default('INR'),interval:z.enum(['month','year']).default('month'),billingMode:z.enum(['manual','automatic']).default('manual'),published:z.boolean().default(false),productLimit:z.number().int().min(1).max(10000).optional(),features:z.array(z.string().trim().min(1).max(120)).max(12).default([])}).strict();
+const planInput=z.object({name:z.string().trim().min(2).max(70),description:z.string().trim().max(400).default(''),audience:z.enum(['creator','customer']),creatorId:z.string().regex(idPattern).optional(),amount:z.number().min(0).max(100000).refine(v=>moneyPaise(v)!==null,'Use at most two decimal places.'),currency:z.literal('INR').default('INR'),interval:z.enum(['month','year']).default('month'),billingMode:z.enum(['automatic','manual']).default('manual'),published:z.boolean().default(false),productLimit:z.number().int().min(1).max(10000).nullable().optional(),monthlyProductLimit:z.number().int().min(1).max(10000).nullable().optional(),features:z.array(z.string().trim().min(1).max(120)).max(12).default([])}).strict();
 const parsedPlan=(value:unknown)=>{const parsed=planInput.safeParse(value);if(!parsed.success) throw new SubscriptionError('Please check the plan name, price, billing interval and limits.');return parsed.data;};
 function requireId(value:unknown):string{if(typeof value!=='string'||!idPattern.test(value))throw new SubscriptionError('Invalid billing reference.');return value;}
 async function acceptSubscriptionTerms(s:SubscriptionRecord,userId:string):Promise<SubscriptionRecord>{
@@ -446,7 +448,7 @@ export function registerSubscriptionRoutes(app:Express,auth:RequestHandler,admin
   if(input.audience==='customer'&&(!old||!input.creatorId||old.creatorId!==input.creatorId))throw new SubscriptionError('Membership offers must first be created by their creator.');
   if(id==='starter'&&(input.amount!==0||input.audience!=='creator'))throw new SubscriptionError('Starter remains a free creator plan.');
   if(id!=='starter'&&input.amount<=0)throw new SubscriptionError('Paid plans need a positive price.');
-  if(input.audience==='creator'&&!input.productLimit)throw new SubscriptionError('Creator plans need a listing limit.');
+  if(input.audience==='creator'&&input.productLimit===undefined&&input.monthlyProductLimit===undefined)throw new SubscriptionError('Creator plans need an active or monthly product limit.');
   if(input.audience==='creator'&&input.creatorId)throw new SubscriptionError('Creator plans belong to Booyahstudio.');
   if(input.audience==='customer'&&input.published&&(await getCreatorById(input.creatorId!))?.status!=='approved')throw new SubscriptionError('Only approved creators can publish memberships.');
   if(input.audience==='customer'&&input.published&&(!await creatorHasCurrentAgreement(input.creatorId!)||!(await getCreatorById(input.creatorId!))?.publicBusiness))throw new SubscriptionError('The creator must complete the current seller agreement and required business disclosures.');

@@ -20,6 +20,12 @@ export function registerDownloadRoutes(app: Express, auth: RequestHandler) {
     if (!order && !membership) return res.status(403).json({ success: false, message: 'A verified purchase or active membership belonging to your account is required.' });
     const allowed = await Store.rpc('rate', `downloadRates/${req.userId}_${productId}`, { now: Date.now(), windowMs: 3600000, maxAttempts: 20 });
     if (!allowed) return res.status(429).json({ success: false, message: 'Download requests temporarily limited. Contact support for help.' });
+    const listing = await Store.get<any>(`marketplace/listings/${productId}`);
+    if (listing?.externalFileUrl) {
+      if (listing.status !== 'active' || listing.file?.published !== true) return res.status(503).json({ success: false, message: 'This external file is temporarily unavailable. Contact support with your order ID.' });
+      await Store.saveDownloadLog(crypto.randomUUID(), { userId: req.userId, ...(order ? { orderId: order.id } : { subscriptionId: membership!.subscriptionId, creatorId: membership!.creatorId, membershipExpiresAt: membership!.expiresAt }), productId, authorizedAt: new Date().toISOString(), expiresAt: Date.now() + 60000, ip: req.ip, userAgent: req.get('user-agent'), event: 'EXTERNAL_DOWNLOAD_LINK_ISSUED' });
+      return res.json({ success: true, downloadUrl: listing.externalFileUrl, expiresAt: Date.now() + 60000, delivery: 'external' });
+    }
     const { data, error } = await supabaseAdmin().storage.from('products').createSignedUrl(`${productId}.zip`, 60, { download: `${productId}.zip` });
     if (error || !data?.signedUrl) return res.status(503).json({ success: false, message: 'File temporarily unavailable. Contact support with your order ID.' });
     await Store.saveDownloadLog(crypto.randomUUID(), { userId: req.userId, ...(order ? { orderId: order.id } : { subscriptionId: membership!.subscriptionId, creatorId: membership!.creatorId, membershipExpiresAt: membership!.expiresAt }), productId, authorizedAt: new Date().toISOString(), expiresAt: Date.now() + 60000, ip: req.ip, userAgent: req.get('user-agent'), event: 'DOWNLOAD_AUTHORIZED' });

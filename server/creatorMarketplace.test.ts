@@ -12,7 +12,9 @@ async function database() {
   const db = new PGlite();
   await db.exec('create role anon; create role authenticated; create role service_role; create schema storage; create table storage.buckets(id text primary key,name text,public boolean); create table storage.objects(id text,bucket_id text);');
   await db.exec(readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../supabase/migrations/202610230004_subscriptions.sql', import.meta.url), 'utf8'));
   await db.exec(readFileSync(new URL('../supabase/migrations/202610230001_creator_marketplace.sql', import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../supabase/migrations/202610240001_creator_pricing_limits.sql', import.meta.url), 'utf8'));
   const call = async (fn: 'store_operation' | 'marketplace_operation' | 'subscription_operation' | 'easebuzz_order_operation', operation: string, key = '', value: any = null) => (await db.query<{ result: any }>(`select public.${fn}($1,$2,$3::jsonb) as result`, [operation, key, JSON.stringify(value)])).rows[0].result;
   return { db, store: (operation: string, key = '', value: any = null) => call('store_operation', operation, key, value), market: (operation: string, key = '', value: any = null) => call('marketplace_operation', operation, key, value), call };
 }
@@ -37,7 +39,7 @@ test('marketplace database serializes slug ownership, creator quotas, listing mo
     await assert.rejects(market('listing_write', actualListing.id, { expected: actualListing, record: { ...actualListing, status: 'active' }, owner: creator.userId, limit: 1 }), /not ready/);
     const activeListing = { ...actualListing, status: 'active', file: { uploaded: true, published: true } };
     await market('listing_write', actualListing.id, { expected: actualListing, record: activeListing, owner: creator.userId, limit: 1, product: { ...activeListing, file: undefined } });
-    const snapshot = { sellerId: creatorId, sellerName: creator.displayName, creatorSlug: creator.slug, commissionBps: 1000, grossPaise: 10000, commissionPaise: 1000, sellerPaise: 9000, provider: 'cashfree', providerAccountId: 'vendor_A', agreementVersion: '2026-10-23' };
+    const snapshot = { sellerId: creatorId, sellerName: creator.displayName, creatorSlug: creator.slug, commissionModel: 'flat_per_item', commissionPerItemPaise: 2000, itemCount: 1, commissionBps: 0, grossPaise: 10000, commissionPaise: 2000, sellerPaise: 8000, provider: 'cashfree', providerAccountId: 'vendor_A', agreementVersion: '2026-10-23' };
     const order = { id: 'sale_one', userId: 'buyer', total: 100, paymentStatus: 'PENDING', status: 'PENDING', marketplace: snapshot, items: [{ productId: actualListing.id, productTitle: 'Actual digital work', price: 100, quantity: 1 }] };
     await store('set', 'orders/sale_one', order);
     await store('bind_cashfree', 'orders/sale_one', { cashfreeOrderId: 'sale_one', cfOrderId: 'cf_sale_one', paymentProvider: 'Cashfree', paymentEnvironment: 'live' });
@@ -46,10 +48,21 @@ test('marketplace database serializes slug ownership, creator quotas, listing mo
     await Promise.all(Array.from({ length: 10 }, () => market('ledger_sync', 'sale_one')));
     let ledger = await store('get', 'marketplace/ledger/sale_one');
     assert.equal(Object.keys(await store('get', 'marketplace/ledger')).length, 1, 'repeated webhook/reconciliation creates one sale ledger');
-    assert.equal(ledger.grossPaise, 10000); assert.equal(ledger.commissionPaise, 1000); assert.equal(ledger.sellerPaise, 9000); assert.equal(ledger.payablePaise, 9000); assert.equal(ledger.settlementStatus, 'pending_provider');
+    assert.equal(ledger.grossPaise, 10000); assert.equal(ledger.commissionPaise, 2000); assert.equal(ledger.sellerPaise, 8000); assert.equal(ledger.payablePaise, 8000); assert.equal(ledger.settlementStatus, 'pending_provider');
+    const suspended = { ...approved, status: 'suspended', suspendedAt: new Date().toISOString() };
+    await market('creator_write', creatorId, { expected: approved, record: suspended });
+    await market('ledger_sync', 'sale_one');
+    ledger = await store('get', 'marketplace/ledger/sale_one'); assert.equal(ledger.payablePaise, 0); assert.equal(ledger.settlementStatus, 'review_required');
+    const expiredReserve = { ...suspended, suspendedAt: new Date(Date.now() - 121 * 24 * 60 * 60 * 1000).toISOString() };
+    await market('creator_write', creatorId, { expected: suspended, record: expiredReserve });
+    await market('ledger_sync', 'sale_one');
+    ledger = await store('get', 'marketplace/ledger/sale_one'); assert.equal(ledger.payablePaise, 8000); assert.equal(ledger.settlementStatus, 'pending_provider');
+    await market('creator_write', creatorId, { expected: expiredReserve, record: approved });
+    await market('ledger_sync', 'sale_one');
+    ledger = await store('get', 'marketplace/ledger/sale_one'); assert.equal(ledger.payablePaise, 8000); assert.equal(ledger.settlementStatus, 'pending_provider');
     await store('record_cashfree_refund', 'orders/sale_one', { id: 'refund_one', payment_id: 'cf_payment_one', order_id: 'sale_one', amount: 2500, currency: 'INR', environment: 'live' });
     await Promise.all(Array.from({ length: 6 }, () => market('ledger_sync', 'sale_one')));
-    ledger = await store('get', 'marketplace/ledger/sale_one'); assert.equal(ledger.refundedPaise, 2500); assert.equal(ledger.refundSellerPaise, 2250); assert.equal(ledger.payablePaise, 6750);
+    ledger = await store('get', 'marketplace/ledger/sale_one'); assert.equal(ledger.refundedPaise, 2500); assert.equal(ledger.refundSellerPaise, 2000); assert.equal(ledger.payablePaise, 6000);
     await store('update', 'orders/sale_one', { refundedAmount: 0 }); await market('ledger_sync', 'sale_one'); assert.equal((await store('get', 'marketplace/ledger/sale_one')).refundedPaise, 2500, 'late stale refund snapshots cannot restore seller funds');
     const verified = await store('get', 'orders/sale_one');
     await store('set', 'orders/duplicate_credit', { ...verified, id: 'duplicate_credit' });
@@ -80,9 +93,12 @@ test('creator routes enforce sessions, ownership and moderation while keeping KY
     storageCalls++;
     const path = decodeURIComponent(url.pathname.split('/products/')[1] || '');
     if (url.pathname.startsWith('/storage/v1/object/info/products/')) return files.has(path) ? Response.json({ name: path, size: files.get(path)!.byteLength }) : Response.json({ message: 'Not found' }, { status: 404 });
+    if (url.pathname.startsWith('/storage/v1/object/upload/sign/products/') && init?.method === 'POST') return Response.json({ url: url.pathname.replace('/storage/v1', '') + '?token=private-upload-token', signedURL: url.pathname.replace('/storage/v1', '') + '?token=private-upload-token', signedUrl: url.pathname.replace('/storage/v1', '') + '?token=private-upload-token', token: 'private-upload-token', path });
+    if (url.pathname.startsWith('/storage/v1/object/upload/sign/products/') && init?.method === 'PUT') { const body = init.body instanceof Blob ? new Uint8Array(await init.body.arrayBuffer()) : new Uint8Array(init.body); files.set(path, body); return Response.json({ Key: path }); }
     if (url.pathname.startsWith('/storage/v1/object/sign/products/') && init?.method === 'POST') return Response.json({ signedURL: url.pathname.replace('/storage/v1', '') + '?token=private-synthetic-token' });
     if (url.pathname.startsWith('/storage/v1/object/sign/products/')) return new Response(files.has(path) ? new Uint8Array(files.get(path)!).buffer : null, { status: files.has(path) ? 206 : 404 });
     if (url.pathname === '/storage/v1/object/copy') { const body = JSON.parse(init.body); if (!files.has(body.sourceKey) || files.has(body.destinationKey)) return Response.json({ message: 'Conflict' }, { status: 409 }); files.set(body.destinationKey, files.get(body.sourceKey)!); return Response.json({ Key: body.destinationKey }); }
+    if (url.pathname.startsWith('/storage/v1/object/products/') && init?.method === 'GET') return new Response(files.has(path) ? new Uint8Array(files.get(path)!).buffer : null, { status: files.has(path) ? 200 : 404 });
     if (url.pathname.startsWith('/storage/v1/object/products/')) { const body = init.body instanceof Blob ? new Uint8Array(await init.body.arrayBuffer()) : new Uint8Array(init.body); files.set(path, body); return Response.json({ Key: path }); }
     throw new Error(`Unexpected synthetic storage request: ${url.pathname}`);
   };
@@ -124,16 +140,27 @@ test('creator routes enforce sessions, ownership and moderation while keeping KY
   const archive = await request(`/me/listings/${listing.id}/archive`, 'owner', 'POST', {}); assert.equal(archive.status, 200); assert.equal((await archive.json()).listing.status, 'archived');
   const unarchive = await request(`/me/listings/${listing.id}`, 'owner', 'PATCH', { title: product.title }); assert.equal(unarchive.status, 200);
   const bytes = new Uint8Array(22); bytes.set([0x50, 0x4b, 3, 4]);
-  const zip = new FormData(); zip.append('file', new Blob([bytes], { type: 'application/zip' }), 'original.zip');
-  const uploaded = await request(`/me/listings/${listing.id}/upload`, 'owner', 'POST', zip); assert.equal(uploaded.status, 200); const uploadedText = await uploaded.text(); assert.ok(!uploadedText.includes('_creators/')); assert.ok(!uploadedText.includes('sha256'));
+  assert.equal((await request(`/me/listings/${listing.id}/upload`, 'owner', 'POST', { fileName: 'too-large.zip', size: 10 * 1024 * 1024 + 1 })).status, 400);
+  const prepared = await request(`/me/listings/${listing.id}/upload`, 'owner', 'POST', { fileName: 'original.zip', size: bytes.byteLength }); assert.equal(prepared.status, 200); const uploadTicket = (await prepared.json()).upload;
+  assert.ok(uploadTicket.signedUrl.includes('private-upload-token'));
+  const directUpload = await fetch(uploadTicket.signedUrl, { method: 'PUT', headers: { 'content-type': 'application/zip', 'x-upsert': 'false' }, body: bytes }); assert.equal(directUpload.status, 200, await directUpload.text());
+  assert.ok(Array.from(files.entries()).some(([path, value]) => path.includes(listing.id) && value[0] === 0x50), 'signed PUT stores the ZIP header in private staging');
+  const uploaded = await request(`/me/listings/${listing.id}/upload/complete`, 'owner', 'POST', { uploadId: uploadTicket.uploadId }); const uploadedText = await uploaded.text(); assert.equal(uploaded.status, 200, uploadedText); assert.ok(!uploadedText.includes('_creators/')); assert.ok(!uploadedText.includes('sha256'));
   assert.equal((await request(`/me/listings/${listing.id}/submit`, 'owner', 'POST', {})).status, 200);
   assert.equal((await request(`/admin/listings/${listing.id}/review-file`, 'owner')).status, 403);
   assert.equal((await request(`/admin/listings/${listing.id}/review-file`, 'admin')).status, 200);
   assert.equal((await request(`/admin/listings/${listing.id}`, 'admin', 'PATCH', { action: 'approve', reason: 'Reviewed the complete original archive' })).status, 409, 'approval requires explicit archive review');
   const published = await request(`/admin/listings/${listing.id}`, 'admin', 'PATCH', { action: 'approve', reason: 'Reviewed the complete original archive', reviewed: true }); assert.equal(published.status, 200); listing = (await published.json()).listing; assert.equal(listing.status, 'active'); assert.equal(listing.file.published, true); assert.ok(files.has(`${listing.id}.zip`), 'reviewed ZIP is physically copied to the private paid path');
-  const replacement = new FormData(); replacement.append('file', new Blob([bytes]), 'replacement.zip'); assert.equal((await request(`/me/listings/${listing.id}/upload`, 'owner', 'POST', replacement)).status, 409, 'published buyer files remain immutable');
-  const snapshot = await prepareCreatorOrder([{ productId: listing.id, quantity: 1 }], 'razorpay', 9900); assert.equal(snapshot?.sellerId, creator.id); assert.equal(snapshot?.grossPaise, 9900); assert.equal(snapshot?.commissionPaise, 990); assert.equal(snapshot?.sellerPaise, 8910);
+  assert.equal((await request(`/me/listings/${listing.id}/upload`, 'owner', 'POST', { fileName: 'replacement.zip', size: bytes.byteLength })).status, 409, 'published buyer files remain immutable');
+  const snapshot = await prepareCreatorOrder([{ productId: listing.id, quantity: 1 }], 'razorpay', 9900); assert.equal(snapshot?.sellerId, creator.id); assert.equal(snapshot?.grossPaise, 9900); assert.equal(snapshot?.commissionPaise, 2000); assert.equal(snapshot?.sellerPaise, 7900);
   const storefront = await (await request('/creators/real-creator', '')).text(); assert.ok(storefront.includes(product.title)); assert.ok(storefront.includes(publicBusiness.businessName)); assert.ok(storefront.includes(publicBusiness.supportEmail)); assert.ok(!storefront.includes('_creators/')); assert.ok(!storefront.includes('providerAccountId')); assert.ok(!storefront.includes('sha256')); assert.ok(!storefront.includes('publishConsent'));
+  const externalUrl = 'https://drive.google.com/uc?id=synthetic-direct-file';
+  const externalDraftResponse = await request('/me/listings', 'owner', 'POST', { ...product, title: 'External delivery product', externalFileUrl: externalUrl }); assert.equal(externalDraftResponse.status, 201);
+  const externalDraft = (await externalDraftResponse.json()).listing;
+  assert.equal((await request(`/me/listings/${externalDraft.id}/submit`, 'owner', 'POST', {})).status, 200);
+  const externalReview = await request(`/admin/listings/${externalDraft.id}/review-file`, 'admin'); assert.equal((await externalReview.json()).downloadUrl, externalUrl);
+  const externalApproval = await request(`/admin/listings/${externalDraft.id}`, 'admin', 'PATCH', { action: 'approve', reason: 'Reviewed external delivery file, destination, rights and content', reviewed: true }); assert.equal(externalApproval.status, 200);
+  const publicStorefront = await (await request('/creators/real-creator', '')).text(); assert.ok(publicStorefront.includes('External delivery product')); assert.ok(!publicStorefront.includes(externalUrl), 'direct download links are absent from public storefront products');
   await store('set', 'orders/owner_sale', { id: 'owner_sale', total: 99, paymentStatus: 'PENDING', marketplace: snapshot, customerEmail: 'private-buyer@example.com', customerName: 'Private Buyer', items: [{ productId: listing.id, productTitle: product.title, price: 99 }] });
   await store('set', 'orders/other_sale', { id: 'other_sale', total: 55, marketplace: { sellerId: 'another_creator' }, customerEmail: 'other-buyer@example.com', items: [] });
   const ownerDashboard = await (await request('/me')).json(); assert.equal(ownerDashboard.orders.length, 1); assert.equal(ownerDashboard.orders[0].id, 'owner_sale'); assert.ok(!JSON.stringify(ownerDashboard.orders).includes('private-buyer@example.com')); assert.ok(!JSON.stringify(ownerDashboard.orders).includes('providerAccountId'));

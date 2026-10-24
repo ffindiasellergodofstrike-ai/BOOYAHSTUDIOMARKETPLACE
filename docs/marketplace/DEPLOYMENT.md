@@ -6,9 +6,9 @@ This repository is a new project. Keep the existing storefront repository and pr
 
 Create a separate project. Save `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` only in server environment settings. The service-role key must never be public or prefixed `VITE_`. This application uses server-managed HttpOnly sessions with Supabase email/password authentication; the customer does not need a mobile OTP.
 
-Apply `supabase/schema.sql` first. It contains the current base financial store. Then apply the new creator, Easebuzz and subscription SQL migrations in version order from `supabase/migrations`. The older `20261005_payment_security.sql` and `202610220001_cashfree.sql` are historical upgrades already represented in the current base schema; do not apply an older function definition after a newer one. The historical `202610030001_marketplace_store.sql` is legacy document-store scaffolding, not the active marketplace persistence layer. New modules use the service-only `store_state` and dedicated atomic RPCs. Review migration names before applying; do not skip a required new RPC.
+Apply `supabase/schema.sql` first. It contains the current base financial store. Then apply the creator, Easebuzz, subscription, and `202610240001_creator_pricing_limits.sql` migrations in version order from `supabase/migrations`. The pricing migration updates the Creator/Pro defaults and atomically enforces monthly product limits and flat creator item commission. The older `20261005_payment_security.sql` and `202610220001_cashfree.sql` are historical upgrades already represented in the current base schema; do not apply an older function definition after a newer one. The historical `202610030001_marketplace_store.sql` is legacy document-store scaffolding, not the active marketplace persistence layer. New modules use the service-only `store_state` and dedicated atomic RPCs. Review migration names before applying; do not skip a required new RPC.
 
-Ensure the `products` bucket is **private**. Upload each of the 25 original company archives as `<productId>.zip`; IDs come from `src/data/products.ts`. These files are intentionally excluded from GitHub and deployments. Checkout checks file availability before accepting payment. Creator ZIPs are uploaded privately, validated and approved through the marketplace workflow. Browser source URLs are never download entitlements.
+Ensure the `products` bucket is **private**. Upload each of the 25 original company archives as `<productId>.zip`; IDs come from `src/data/products.ts`. These files are intentionally excluded from GitHub and deployments. Checkout checks file availability before accepting payment. Creator ZIPs up to 10 MB use an owner-bound short-lived signed upload URL directly to this bucket, then are size/signature checked and reviewed before publication. Configure Supabase Storage CORS to allow the final site origin for browser PUT requests. External HTTPS delivery links remain private in listing records and are returned only after verified purchase or membership access; the external host still controls its link privacy and availability. Browser source URLs are never download entitlements.
 
 Generate and securely back up a 32-byte base64 `MARKETPLACE_ENCRYPTION_KEY`. It encrypts private creator identity and payout details. Do not rotate it without a data migration. Public profiles do not expose PAN, bank accounts or private seller provider references.
 
@@ -16,13 +16,27 @@ In Supabase Authentication set the final Site URL and allowed redirect URLs for 
 
 Create the owner's ordinary account, then assign its admin role server-side in the Supabase store using the owner setup guide. There is no public admin password, secret browser toggle or default admin credential. Admin access uses the same verified password login plus a server-checked admin role. Never accept a role from client metadata.
 
+### Free-plan start and credentials
+
+The Vercel Supabase integration may populate `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and sometimes server keys, but it does not necessarily provision a direct PostgreSQL connection string or database password. This app uses the Supabase HTTPS client and service-only RPCs; normal requests do not require `POSTGRES_PASSWORD`, `DATABASE_URL`, or direct Postgres access. Apply SQL in the Supabase SQL Editor or a securely configured Supabase CLI. Do not invent a placeholder password. If you later use a direct migration tool, set a database password in Supabase and keep its connection string server-only.
+
+There is no Redis client, `REDIS_URL`, or Redis-backed feature in this repository. Do not provision Redis unless a future feature adds and tests a Redis workload.
+
+Supabase Free can be a reasonable development or low-traffic trial, but it is not a six-month capacity or uptime guarantee. Free projects can pause after inactivity and have finite database, storage, and egress quotas; production-grade recovery features may require a paid tier. The 10 MB upload cap is per file, not per account: 20 sellers uploading one 10 MB file monthly would add about 1.2 GB over six months, before company files, replacements, and other data. Track storage, database size, egress, auth/email limits, and backups; arrange tested backups and a paid tier before relying on uninterrupted live financial records. Check current Supabase pricing because quotas and terms can change.
+
 ## 2. Vercel
 
 Import `BOOYAHSTUDIOMARKETPLACE` as a separate Vercel project. Use Node 24.x and the committed pnpm lockfile. The included `vercel.json` supplies native serverless API routing, dynamic HTML/SEO routing and a daily reconciliation fallback.
 
 Set `APP_URL=https://YOUR-FINAL-DOMAIN` and `VITE_SITE_URL=https://YOUR-FINAL-DOMAIN` to the same origin, with no path/query/fragment. `VITE_SITE_URL` is public; only public configuration belongs there. Explicit `APP_URL` controls trusted checkout, email and recovery redirects. Vercel deployment host values are a trusted fallback for server redirects; a request Host header is not. Never leave the example canonical domain in a production build. Environment changes require redeployment.
 
+Vercel Hobby is intended for personal, non-commercial use under Vercel's current plan terms; do not run a commercial marketplace on Hobby. A missing Postgres password is not itself a Vercel API error for this app. Run `pnpm check:vercel`, then verify `/api/health`, sign-in, marketplace config, and a real signed Storage upload against the deployed project. Local tests cannot guarantee a live deployment is error-free or payment-provider-approved.
+
 Add Supabase, encryption, chosen provider and email secrets from `.env.example`. Do not paste secrets into the admin panel, product descriptions, GitHub or logs. Do not reuse the original store's database for development.
+
+### Hosting alternatives
+
+There is no honest promise of a completely free, always-on, production-grade commercial host for this Vercel/Express build. Render free web services can sleep and are a poor fit for prompt payment webhooks. Netlify requires an Express/functions adapter and replacement for the Vercel cron setup. Cloudflare Pages is not a drop-in Node/Express host; Workers would require a migration and compatibility tests. Cloudflare Workers may be a low-cost option depending on current terms, but that does not make Supabase Storage, email, provider fees, backups, or payment processing free. Confirm commercial terms, runtime limits, cron behavior, and webhook latency on the chosen host before launch.
 
 ## 3. Provider activation and switching
 

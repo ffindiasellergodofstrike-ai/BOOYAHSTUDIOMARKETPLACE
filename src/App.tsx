@@ -28,6 +28,7 @@ import { ContactPage } from './pages/ContactPage';
 import { FAQPage } from './pages/FAQPage';
 import { PolicyDetailsPage } from './pages/policies/PolicyDetailsPage';
 import { CreatorHubPage } from './pages/CreatorHubPage';
+import { CreatorDeliveryPage } from './pages/CreatorDeliveryPage';
 import { CreatorDirectoryPage } from './pages/CreatorDirectoryPage';
 import { CreatorStorefrontPage } from './pages/CreatorStorefrontPage';
 import { PricingPage } from './pages/PricingPage';
@@ -52,7 +53,7 @@ const AppContent: React.FC = () => {
 
   // Route Resolver
   const renderCurrentPage = () => {
-    if (currentPath.startsWith('/creators/')) return <CreatorStorefrontPage />;
+    if (currentPath.startsWith('/store/') || currentPath.startsWith('/creators/')) return <CreatorStorefrontPage />;
     if (currentPath.startsWith('/product/')) {
       return <ProductDetailsPage />;
     }
@@ -85,6 +86,8 @@ const AppContent: React.FC = () => {
         return <CreatorDirectoryPage />;
       case '/creator':
         return <CreatorHubPage />;
+      case '/creator/delivery':
+        return <CreatorDeliveryPage />;
       case '/pricing':
         return <PricingPage />;
       case '/memberships':

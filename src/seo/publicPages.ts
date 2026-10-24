@@ -3,13 +3,13 @@ import { BUSINESS } from '../config/business';
 import { policyData, POLICY_REDIRECTS, SUPPORTED_POLICY_SLUGS } from '../data/policyData';
 import { activeSEOProducts, BASE_URL, cleanPagePath, escapeHtml, getSEOPageData, PRIVATE_PAGE_PATHS } from './seoMetadata';
 
-export function publicCanonicalPaths(products: typeof PRODUCTS = PRODUCTS): string[] {
-  const paths = ['/', '/products', '/creators', '/creators/booyahstudio', '/pricing', '/about', '/contact', '/faq', ...SUPPORTED_POLICY_SLUGS.map(slug => `/policies/${slug}`), ...CATEGORIES.map(category => `/category/${category.slug}`), ...activeSEOProducts(products).map(product => `/product/${encodeURIComponent(product.slug)}`)];
-  for (const product of activeSEOProducts(products)) { paths.push(`/category/${encodeURIComponent(product.category)}`); if (product.creatorSlug) paths.push(`/creators/${encodeURIComponent(product.creatorSlug)}`); }
+export function publicCanonicalPaths(products: typeof PRODUCTS = PRODUCTS, creatorSlugs: string[] = []): string[] {
+  const paths = ['/', '/products', '/creators', '/store/booyahstudio', '/pricing', '/about', '/contact', '/faq', ...creatorSlugs.map(slug => `/store/${encodeURIComponent(slug)}`), ...SUPPORTED_POLICY_SLUGS.map(slug => `/policies/${slug}`), ...CATEGORIES.map(category => `/category/${category.slug}`), ...activeSEOProducts(products).map(product => `/product/${encodeURIComponent(product.slug)}`)];
+  for (const product of activeSEOProducts(products)) { paths.push(`/category/${encodeURIComponent(product.category)}`); if (product.creatorSlug) paths.push(`/store/${encodeURIComponent(product.creatorSlug)}`); }
   return [...new Set(paths)].filter(route => !getSEOPageData(route, {}, products).noindex);
 }
-export function renderSitemap(products: typeof PRODUCTS = PRODUCTS): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${publicCanonicalPaths(products).map(route => `  <url><loc>${escapeHtml(`${BASE_URL}${route}`)}</loc></url>`).join('\n')}\n</urlset>`;
+export function renderSitemap(products: typeof PRODUCTS = PRODUCTS, creatorSlugs: string[] = []): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${publicCanonicalPaths(products, creatorSlugs).map(route => `  <url><loc>${escapeHtml(`${BASE_URL}${route}`)}</loc></url>`).join('\n')}\n</urlset>`;
 }
 export function renderRobots(): string {
   return `User-agent: *\n${[...PRIVATE_PAGE_PATHS, '/api/', '/.data/', '/demos/'].map(route => `Disallow: ${route}`).join('\n')}\n\nSitemap: ${BASE_URL}/sitemap.xml\n`;
@@ -29,11 +29,12 @@ export function renderPublicPageContent(pathname: string, products: typeof PRODU
   else if (path === '/creators') {
     const creators = new Map<string, string>([['booyahstudio', BUSINESS.name]]);
     for (const product of activeProducts) if (product.creatorSlug && product.sellerName) creators.set(product.creatorSlug, product.sellerName);
-    body = `<h1>Good work. Thoughtful creators.</h1><p>Find digital goods from Booyahstudio and independent makers.</p><ul>${[...creators].map(([slug,name]) => `<li><a href="/creators/${encodeURIComponent(slug)}">${escapeHtml(name)}</a></li>`).join('')}</ul><a href="/creator">Create your storefront</a>`;
-  } else if (path.startsWith('/creators/')) {
-    const slug = decodeURIComponent(path.slice('/creators/'.length));
+    body = `<h1>Good work. Thoughtful creators.</h1><p>Find digital goods from Booyahstudio and independent makers.</p><ul>${[...creators].map(([slug,name]) => `<li><a href="/store/${encodeURIComponent(slug)}">${escapeHtml(name)}</a></li>`).join('')}</ul><a href="/creator">Create your storefront</a>`;
+  } else if (path.startsWith('/store/') || path.startsWith('/creators/')) {
+    const prefix = path.startsWith('/store/') ? '/store/' : '/creators/';
+    const slug = decodeURIComponent(path.slice(prefix.length));
     const items = activeProducts.filter(product => (product.creatorSlug || 'booyahstudio') === slug);
-    body = `<h1>${escapeHtml(items[0]?.sellerName || BUSINESS.name)}</h1><p>Explore this creator’s digital collection. See each listing for what’s included and the applicable license.</p>${productLinks(items)}`;
+    body = `<h1>${escapeHtml(items[0]?.sellerName || (slug === 'booyahstudio' ? BUSINESS.name : 'Creator storefront'))}</h1><p>Explore this creator’s digital collection. See each listing for what’s included and the applicable license.</p>${productLinks(items)}`;
   } else if (path === '/pricing') body = '<h1>Make room for your next chapter.</h1><p>Create your storefront and share original digital products. Start with the free creator plan; available paid plans and membership prices are shown before checkout.</p><p>Paid plans start only after verified payment. Marketplace publication and payment collection require review and provider activation.</p><a href="/creator">Create your storefront</a><a href="/policies/terms">Creator terms</a>';
   else if (path.startsWith('/product/')) {
     const product = activeProducts.find(item => page.canonicalUrl === `${BASE_URL}/product/${encodeURIComponent(item.slug)}`)!;

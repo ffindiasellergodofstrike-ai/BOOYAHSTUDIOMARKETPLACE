@@ -58,12 +58,14 @@ export function getSEOPageData(pathname: string, _searchParams: Record<string, s
     const titles: Record<string, string> = { '/creator': 'Your storefront', '/memberships': 'Your memberships', '/admin': 'Manage store', '/account': 'Your account', '/account/orders': 'Your orders', '/account/downloads': 'Your downloads', '/account/settings': 'Account settings', '/checkout': 'Checkout', '/cart': 'Your cart', '/login': 'Sign in', '/register': 'Create an account', '/forgot-password': 'Reset your password', '/wishlist': 'Your wishlist', '/search': 'Search the collection' };
     return basePage(path, titles[path] || titles[privateRoute], 'Sign in to manage your purchases, orders and downloads at Booyahstudio.', { noindex: true, ogImageAlt: `${BUSINESS.name} account and purchases` });
   }
-  if (path.startsWith('/creators/')) {
-    const slug = decodeSlug(path.slice('/creators/'.length));
+  if (path.startsWith('/store/') || path.startsWith('/creators/')) {
+    const prefix = path.startsWith('/store/') ? '/store/' : '/creators/';
+    const slug = decodeSlug(path.slice(prefix.length));
+    if (!/^[a-z0-9][a-z0-9-]{2,49}$/i.test(slug)) return notFound(path, 'Creator');
     const product = activeProducts.find(item => (item.creatorSlug || 'booyahstudio') === slug);
-    if (slug !== 'booyahstudio' && !product) return notFound(path, 'Creator');
-    const name = product?.sellerName || BUSINESS.name;
-    return basePage(`/creators/${encodeURIComponent(slug)}`, `${name} – Digital products`, `Explore digital products published by ${name} on Booyahstudio. Review the files, requirements and license before purchasing.`);
+    if (prefix === '/creators/' && slug !== 'booyahstudio' && !product) return notFound(path, 'Creator');
+    const name = product?.sellerName || (slug === 'booyahstudio' ? BUSINESS.name : 'Creator storefront');
+    return basePage(`/store/${encodeURIComponent(slug)}`, `${name} – Digital products`, `Explore digital products published by ${name} on Booyahstudio. Review the files, requirements and license before purchasing.`);
   }
   if (path.startsWith('/product/')) {
     const slug = decodeSlug(path.slice('/product/'.length));

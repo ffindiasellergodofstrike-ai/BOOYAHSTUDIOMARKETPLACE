@@ -58,7 +58,7 @@ export async function seoMiddleware(req: Request, res: Response, next: NextFunct
     return next();
   }
 
-  const catalogPage = cleanPath === '/' || cleanPath === '/products' || cleanPath === '/creators' || cleanPath.startsWith('/creators/') || cleanPath.startsWith('/product/') || cleanPath.startsWith('/category/');
+  const catalogPage = cleanPath === '/' || cleanPath === '/products' || cleanPath === '/creators' || cleanPath.startsWith('/creators/') || cleanPath.startsWith('/store/') || cleanPath.startsWith('/product/') || cleanPath.startsWith('/category/');
   const products = await filterMarketplaceCatalog(catalogPage && process.env.SUPABASE_URL ? mergeProductCatalog(PRODUCTS, await Store.getAllProducts()) : PRODUCTS);
   const pageSEOData = getSEOPageData(cleanPath, queryObj, products);
   const shell = getIndexHtmlShell();
