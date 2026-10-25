@@ -5,6 +5,7 @@ import { cashfreeConfig, cashfreeRequest } from './cashfree';
 import { evidenceWindow, syncCashfreeDispute } from './cashfreeDisputes';
 import { paymentEnvironment, razorpayRequest, syncDispute } from './razorpay';
 import { gatewayReadiness } from './gatewayControl';
+import { BUSINESS } from '../src/config/business';
 
 const safeId = /^[A-Za-z0-9_-]{1,100}$/;
 const validAmount = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
@@ -34,7 +35,7 @@ export function collectDisputeCases(orders: any[], cashfree: any[], now = Date.n
     cases.set(`${provider}:${row.id}`, { provider, id: String(row.id), orderId: order.id, paymentId, amountPaise: amount, currency: 'INR', status,
       reason: String(row.reason_description || row.reason_code || '').slice(0, 1000), dueAt, open, overdue: open && remaining !== null && remaining <= 0,
       dueSoon: open && remaining !== null && remaining > 0 && remaining <= 48 * 3600000,
-      verifiedAt: row.verifiedAt || row.updated_at || null, sellerName: order.marketplace?.sellerName || 'Booyahstudio',
+      verifiedAt: row.verifiedAt || row.updated_at || null, sellerName: order.marketplace?.sellerName || BUSINESS.name,
       evidenceUrl: provider === 'cashfree' ? `/api/admin/cashfree/disputes/${row.id}/evidence` : `/api/admin/orders/${order.id}/evidence`,
       canSubmit: provider === 'cashfree' && evidenceWindow(row, now).canSubmit,
       submissionMode: provider === 'cashfree' ? 'reviewed_api' : 'provider_dashboard' });

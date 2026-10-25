@@ -1,6 +1,6 @@
 # Disclaimer & Limitation of Liability
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
@@ -14,17 +14,17 @@ Last updated: October 23, 2026
 
 ## 1. Business & Contact Information
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
 Grievance contact: MANISH KUMAR SONKAR, at the same email and address.
 
-This Disclaimer & Limitation of Liability document establishes the operational boundaries, technical disclaimers, and liability limits for Booyahstudio.
+This Disclaimer & Limitation of Liability document establishes the operational boundaries, technical disclaimers, and liability limits for BooyahMarket.
 
 ## 2. Scope of Digital Products & Templates
 
-Booyahstudio provides digital website templates, user interface source code, and design assets intended for web developers, creators, and businesses. While we design code to high modern standards, digital templates are provided on an “as-is” and “as-available” basis without warranties of fitness for a specific custom application.
+BooyahMarket provides digital website templates, user interface source code, and design assets intended for web developers, creators, and businesses. While we design code to high modern standards, digital templates are provided on an “as-is” and “as-available” basis without warranties of fitness for a specific custom application.
 
 ## 3. Technical Dependencies, Compatibility & Modifications
 
@@ -44,6 +44,6 @@ This disclaimer does not exclude responsibility for delivering the advertised fi
 
 ## 6. Limitation of Liability & Statutory Rights
 
-Under no circumstances shall Booyahstudio, its owner MANISH KUMAR SONKAR, or its operators be liable for any indirect, incidental, consequential, special, or punitive damages (including loss of data, loss of profits, or business interruption) arising out of or related to the use or inability to use our digital products or website.
+Under no circumstances shall BooyahMarket, its owner MANISH KUMAR SONKAR, or its operators be liable for any indirect, incidental, consequential, special, or punitive damages (including loss of data, loss of profits, or business interruption) arising out of or related to the use or inability to use our digital products or website.
 
 Our total cumulative financial liability for any direct claim shall not exceed the exact amount paid by you for the specific product in question. Nothing in this disclaimer excludes or limits consumer rights that cannot be excluded under applicable Indian consumer protection laws.

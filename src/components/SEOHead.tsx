@@ -1,6 +1,7 @@
 import { useProductCatalog } from '../hooks/useProductCatalog';
 import React, { useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { BUSINESS } from '../config/business';
 import { getSEOPageData } from '../seo/seoMetadata';
 
 export const SEOHead: React.FC = () => {
@@ -61,7 +62,7 @@ export const SEOHead: React.FC = () => {
 
     // OpenGraph
     updateMeta('meta[property="og:type"]', 'content', pageData.ogType, 'property');
-    updateMeta('meta[property="og:site_name"]', 'content', 'Booyahstudio', 'property');
+    updateMeta('meta[property="og:site_name"]', 'content', BUSINESS.name, 'property');
     updateMeta('meta[property="og:title"]', 'content', pageData.title, 'property');
     updateMeta('meta[property="og:description"]', 'content', pageData.description, 'property');
     updateMeta('meta[property="og:url"]', 'content', pageData.canonicalUrl, 'property');

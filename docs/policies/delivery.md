@@ -1,10 +1,10 @@
-MANISH KUMAR SONKAR | Booyahstudio
+MANISH KUMAR SONKAR | BooyahMarket
 
 # Digital Product Delivery, Access & Download Records
 
 Updated: October 23, 2026
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)

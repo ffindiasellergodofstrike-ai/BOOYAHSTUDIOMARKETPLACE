@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../context/AppContext';
+import { BUSINESS } from '../config/business';
 import { useToast } from '../context/ToastContext';
 import { OrderService } from '../services/OrderService';
 import { PaymentService } from '../services/PaymentService';
@@ -219,7 +220,7 @@ export const CheckoutPage: React.FC = () => {
       if (!init.success) throw new Error(init.message || 'Could not open checkout.');
       const checkout = new window.Razorpay({
         key: init.key, order_id: init.razorpayOrderId, amount: init.amount, currency: init.currency,
-        name: 'Booyahstudio', description: `Digital products · ${pendingOrder.id}`,
+        name: BUSINESS.name, description: `Digital products · ${pendingOrder.id}`,
         prefill: { name: customerName, email: customerEmail, contact: sanitizedPhone },
         modal: { ondismiss: () => { setIsProcessing(false); void fetch('/api/payments/razorpay/checkout-closed', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: pendingOrder.id }) }).catch(() => undefined); } },
         handler: async (response: any) => {

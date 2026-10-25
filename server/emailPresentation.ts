@@ -9,10 +9,10 @@ export function renderOrderEmailHtml(order: any, refund: boolean, trustedOrigin:
   if (!['https:', 'http:'].includes(origin.protocol) || origin.username || origin.password) throw new Error('Invalid email origin.');
   const accountUrl = new URL(refund ? '/account/orders' : '/account/downloads', origin).toString();
   const title = refund ? 'Your refund is confirmed.' : 'A good idea starts here.';
-  const preview = refund ? 'An update on your Booyahstudio order.' : 'Your order is confirmed. Your downloads are ready in your account.';
+  const preview = refund ? `An update on your ${BUSINESS.name} order.` : 'Your order is confirmed. Your downloads are ready in your account.';
   const intro = refund
     ? 'We have recorded a refund for your order. You can review your current purchases and access in your account.'
-    : 'Thanks for choosing Booyahstudio. Your purchase is confirmed, and your files are waiting in your account.';
+    : `Thanks for choosing ${BUSINESS.name}. Your purchase is confirmed, and your files are waiting in your account.`;
   const orderReference = escapeHtml(order.orderNumber || order.id);
   const currency = escapeHtml(order.currency || 'INR');
   const items = (Array.isArray(order.items) ? order.items : []).map((item: any) => `<tr><td style="padding:16px 0;border-bottom:1px solid #eae7df;font-size:15px;line-height:1.6;color:#292c25;">${escapeHtml(item.productTitle || item.product?.title || item.productId || 'Digital product')}<br><span style="font-size:12px;color:#767a6f;">By ${escapeHtml(item.sellerName || item.product?.sellerName || BUSINESS.name)}</span>${item.refunded ? '<br><span style="font-size:12px;color:#767a6f;">Refunded · further downloads restricted</span>' : ''}</td><td width="90" align="right" style="padding:16px 0;border-bottom:1px solid #eae7df;font-size:12px;color:#767a6f;vertical-align:top;">${item.refunded ? 'Refunded' : 'Digital item'}</td></tr>`).join('');

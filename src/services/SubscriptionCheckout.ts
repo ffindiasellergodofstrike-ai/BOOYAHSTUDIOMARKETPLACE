@@ -16,7 +16,7 @@ export async function openSubscriptionCheckout(checkout:SubscriptionCheckout):Pr
  if(checkout.provider==='razorpay'&&checkout.mode==='razorpay'){
   if(!/^rzp_(live|test)_[A-Za-z0-9]+$/.test(checkout.keyId||'')||!/^((sub|order)_[A-Za-z0-9]+)$/.test(checkout.subscriptionId||checkout.orderId||''))throw new Error('Invalid payment session.');
   await new Promise<void>((resolve,reject)=>{
-   const modal=new (window as any).Razorpay({key:checkout.keyId,...(checkout.subscriptionId?{subscription_id:checkout.subscriptionId}:{order_id:checkout.orderId,amount:checkout.amount,currency:'INR'}),name:'Booyahstudio',description:'Membership',theme:{color:'#c94a1a'},handler:()=>{window.location.assign(returnURL.href);resolve();},modal:{ondismiss:()=>reject(new Error('Checkout closed. You can check your membership status below.'))}});
+   const modal=new (window as any).Razorpay({key:checkout.keyId,...(checkout.subscriptionId?{subscription_id:checkout.subscriptionId}:{order_id:checkout.orderId,amount:checkout.amount,currency:'INR'}),name:'BooyahMarket',description:'Membership',theme:{color:'#c94a1a'},handler:()=>{window.location.assign(returnURL.href);resolve();},modal:{ondismiss:()=>reject(new Error('Checkout closed. You can check your membership status below.'))}});
    modal.on('payment.failed',()=>reject(new Error('Payment was not completed. Please check your membership status before retrying.')));modal.open();
   });return;
  }

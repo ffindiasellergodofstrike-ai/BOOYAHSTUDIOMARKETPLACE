@@ -1,6 +1,6 @@
 # Creator Agreement
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
@@ -15,21 +15,21 @@ Last updated: October 23, 2026
 
 ## Platform Operator & Grievance Contact
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
 Grievance contact: MANISH KUMAR SONKAR, at the same email and address.
 
-This Creator Agreement governs independent publishing and marketplace participation on Booyahstudio.
+This Creator Agreement governs independent publishing and marketplace participation on BooyahMarket.
 
 ## Eligibility & Accurate Information
 
-You must be at least 18, legally able to contract, and authorized to publish and sell each product. Provide accurate public profile, legal, tax, bank and provider-onboarding information and keep it up to date. Booyahstudio may request verification, reject a listing or suspend new sales for an explained violation or provider requirement. Platform approval does not replace payment-provider KYC or marketplace approval.
+You must be at least 18, legally able to contract, and authorized to publish and sell each product. Provide accurate public profile, legal, tax, bank and provider-onboarding information and keep it up to date. BooyahMarket may request verification, reject a listing or suspend new sales for an explained violation or provider requirement. Platform approval does not replace payment-provider KYC or marketplace approval.
 
 ## Your Products & Rights
 
-You retain copyright in your original work. You grant Booyahstudio a limited license to display listing previews and securely deliver the files to authorized buyers. You warrant you own the content or have sufficient rights, disclose third-party dependencies and licenses, and provide truthful descriptions, requirements, support scope and included files. No infringing, illegal, malicious, deceptive or prohibited products may be published.
+You retain copyright in your original work. You grant BooyahMarket a limited license to display listing previews and securely deliver the files to authorized buyers. You warrant you own the content or have sufficient rights, disclose third-party dependencies and licenses, and provide truthful descriptions, requirements, support scope and included files. No infringing, illegal, malicious, deceptive or prohibited products may be published.
 
 ## Prices, Commission & Payouts
 

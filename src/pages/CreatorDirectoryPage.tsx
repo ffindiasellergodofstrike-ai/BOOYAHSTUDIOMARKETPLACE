@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Search, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { BUSINESS } from '../config/business';
 import { useProductCatalog } from '../hooks/useProductCatalog';
 import { MarketplaceService, type CreatorCard } from '../services/MarketplaceService';
 import { CreatorProfileCard, MarketEmpty, MarketError, MarketLoading, MarketPageHeading } from '../components/marketplace/MarketplaceShared';
@@ -19,7 +20,7 @@ export const CreatorDirectoryPage: React.FC = () => {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
-  const company: CreatorCard = { id: 'booyahstudio', slug: 'booyahstudio', displayName: 'Booyahstudio', headline: 'Thoughtfully made digital products for your next big idea.', isPlatform: true, productCount: catalog.filter(p => !p.sellerId || p.sellerId === 'booyahstudio').length };
+  const company: CreatorCard = { id: 'booyahstudio', slug: 'booyahstudio', displayName: BUSINESS.name, headline: 'Thoughtfully made digital products for your next big idea.', isPlatform: true, productCount: catalog.filter(p => !p.sellerId || p.sellerId === 'booyahstudio').length };
   const visible = useMemo(() => (error ? [company] : creators).filter(c => `${c.displayName} ${c.headline || ''} ${c.bio || ''}`.toLowerCase().includes(query.toLowerCase().trim())), [creators, query, error, company.productCount]);
   return <main className="market-page"><div className="studio-container">
     <MarketPageHeading kicker="Independent ideas. Shared possibilities." title="Good things, made" emphasis="by creative people." description="Discover digital products from the people who make them. Find a useful starting point, a fresh perspective, or your next favourite creator.">

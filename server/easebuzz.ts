@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { BUSINESS } from '../src/config/business';
 
 export interface EasebuzzInitiateParams {
   key: string;
@@ -331,7 +332,7 @@ async function easebuzzFormRequest(base: string, endpoint: string, payload: URLS
 export async function createEasebuzzHostedPayment(input: { transactionId: string; amount: number; email: string; name: string; phone: string; successUrl: string; failureUrl: string; udf1?: string; udf2?: string; splitPayments?: Record<string, number> }) {
   const config = easebuzzConfig();
   if (!config.configured || !/^[A-Za-z0-9_-]{3,45}$/.test(input.transactionId) || !formatEasebuzzAmount(input.amount).valid || !isValidIndianPhone(sanitizePhoneNumber(input.phone))) throw new Error('Easebuzz checkout is not configured for this payment.');
-  const { payload } = buildEasebuzzInitiatePayload({ key: process.env.EASEBUZZ_KEY!, salt: process.env.EASEBUZZ_SALT!, txnid: input.transactionId, amount: input.amount, productinfo: 'Booyahstudio digital products', firstname: input.name, email: input.email, phone: input.phone, surl: input.successUrl, furl: input.failureUrl, udf1: input.udf1, udf2: input.udf2 });
+  const { payload } = buildEasebuzzInitiatePayload({ key: process.env.EASEBUZZ_KEY!, salt: process.env.EASEBUZZ_SALT!, txnid: input.transactionId, amount: input.amount, productinfo: `${BUSINESS.name} digital products`, firstname: input.name, email: input.email, phone: input.phone, surl: input.successUrl, furl: input.failureUrl, udf1: input.udf1, udf2: input.udf2 });
   if (input.splitPayments) {
     if (process.env.EASEBUZZ_MARKETPLACE_APPROVED !== 'true') throw new Error('Easebuzz Slices is not activated.');
     payload.set('split_payments', JSON.stringify(input.splitPayments));

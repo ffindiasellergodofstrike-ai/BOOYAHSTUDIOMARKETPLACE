@@ -21,7 +21,7 @@ export const Header: React.FC = () => {
       <div className="announcement-bar" role="region" aria-label="Store announcement"><span>A better starting point for your next big idea.</span><button onClick={() => navigate('/products')}>Explore the collection <ArrowUpRight size={13} /></button></div>
       <header className="studio-header">
         <div className="studio-container header-inner">
-          <button id="header-logo-btn" className="studio-brand" aria-label="Booyahstudio Home" onClick={() => navigate('/')}><Brand /></button>
+          <button id="header-logo-btn" className="studio-brand" aria-label="BooyahMarket Home" onClick={() => navigate('/')}><Brand /></button>
           <nav className="desktop-nav" aria-label="Main navigation">
             {[['/', 'Home'], ['/products', 'Explore'], ['/creators', 'Creators'], ['/pricing', 'Start selling']].map(([path, label]) => <button key={path} onClick={() => navigate(path)} aria-current={currentPath === path ? 'page' : undefined}>{label}{currentPath === path && <span className="nav-dot" />}</button>)}
           </nav>

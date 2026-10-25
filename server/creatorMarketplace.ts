@@ -13,9 +13,9 @@ import { BUSINESS } from '../src/config/business';
 import { PRODUCTS } from '../src/data/products';
 
 const creatorAgreementContent = {
-  title: 'Booyahstudio Creator Agreement', terms: [
+  title: `${BUSINESS.name} Creator Agreement`, terms: [
     'You must be at least 18 and provide accurate identity, ownership, bank and tax information. Publishing approval does not constitute payment-provider KYC or settlement approval.',
-    'Publish only original digital work you own or have permission to distribute. You retain ownership; you grant Booyahstudio permission to display, sell and privately deliver the listed work to entitled customers.',
+    `Publish only original digital work you own or have permission to distribute. You retain ownership; you grant ${BUSINESS.name} permission to display, sell and privately deliver the listed work to entitled customers.`,
     'You may upload one ZIP archive of up to 10 MB to the private Supabase Storage products bucket, or provide a direct HTTPS download link that you control. External links must be accessible to buyers after purchase, free of passwords or misleading redirects, and must not contain personal or confidential information. External hosts may expose or revoke their links; do not use them for files requiring private access.',
     'Do not list illegal goods or services, stolen or counterfeit goods, pirated or infringing files, malware, credential theft tools, personal data, deceptive schemes, unauthorized financial or investment products, gambling, weapons, controlled substances, explicit sexual exploitation, or content restricted by law or a payment provider. Provider-specific prohibited-business rules also apply and may change; review current Cashfree, Razorpay and Easebuzz requirements before listing.',
     'The platform fee for creator product sales is a flat ₹20 per product item, deducted from the verified order proceeds and recorded per order. Paid plan fees are separate. Provider charges, applicable taxes and verified refunds may affect final proceeds.',
@@ -33,7 +33,7 @@ export const CREATOR_AGREEMENT = { ...creatorAgreementContent, version: `2026-10
 export const MARKETPLACE_CATEGORIES = ['Website templates', 'Source code', 'Scripts', 'UI kits', 'Design assets', 'Documentation'];
 export const CREATOR_COMMISSION_PER_ITEM_PAISE = 2000;
 export const CREATOR_UPLOAD_LIMIT_BYTES = 10 * 1024 * 1024;
-export const COMPANY_CREATOR: PublicCreator = { id: 'booyahstudio', slug: 'booyahstudio', displayName: 'Booyahstudio', headline: 'Original digital products, made by Booyahstudio.', bio: 'Explore the original Booyahstudio collection of templates, code and digital resources.', isPlatform: true, publicBusiness: { businessName: BUSINESS.owner, businessAddress: BUSINESS.address, supportEmail: BUSINESS.email, supportPhone: BUSINESS.phone, grievanceName: BUSINESS.owner } };
+export const COMPANY_CREATOR: PublicCreator = { id: 'booyahstudio', slug: 'booyahstudio', displayName: BUSINESS.name, headline: `Original digital products, made by ${BUSINESS.name}.`, bio: `Explore the original ${BUSINESS.name} collection of templates, code and digital resources.`, isPlatform: true, publicBusiness: { businessName: BUSINESS.owner, businessAddress: BUSINESS.address, supportEmail: BUSINESS.email, supportPhone: BUSINESS.phone, grievanceName: BUSINESS.owner } };
 
 type InternalCreator = Omit<CreatorProfile, 'providerAccounts' | 'publicBusiness'> & { publicBusiness?: CreatorProfile['publicBusiness'] & { publishConsent: true }; encryptedIdentity?: string; encryptedKyc?: string; suspendedAt?: string; agreementAcceptance?: { userId: string; acceptedAt: string; version: string; hash: string; policyVersion: string; ip: string; userAgent: string }; providerAccounts: Partial<Record<MarketplaceGateway, NonNullable<CreatorProfile['providerAccounts'][MarketplaceGateway]> & { providerStatus?: string }>> };
 type InternalListing = CreatorListing & { externalFileUrl?: string | null; file: CreatorListing['file'] & { stagingPath?: string; published?: boolean; sha256?: string }; revision: number };
@@ -93,7 +93,7 @@ async function writeCreator(previous: InternalCreator, next: InternalCreator, ev
 async function writeListing(previous: InternalListing | null, next: InternalListing, creator: InternalCreator, actorId: string, action: string, reviewReason?: string) { if (!['LISTING_ARCHIVED', 'LISTING_REJECTED'].includes(action) && !hasCurrentAgreement(creator)) throw new MarketplaceError(409, 'Review and accept the current creator agreement before publishing or updating offers.'); const limits = await creatorLimits(creator.userId); return rpc<InternalListing>('listing_write', next.id, { expected: previous, record: next, owner: creator.userId, limit: limits.productLimit, monthlyLimit: limits.monthlyProductLimit, product: asProduct(next), audit: audit(actorId, action, next.id, reviewReason) }); }
 
 /** Never returns encrypted KYC, private file locations or provider account references. */
-export function annotatePlatformProducts<T extends Product>(products: T[]): T[] { return products.map(product => product.sellerId ? product : { ...product, sellerId: 'booyahstudio', sellerName: 'Booyahstudio', creatorSlug: 'booyahstudio', isPlatformProduct: true, membershipEligible: false }); }
+export function annotatePlatformProducts<T extends Product>(products: T[]): T[] { return products.map(product => product.sellerId ? product : { ...product, sellerId: 'booyahstudio', sellerName: BUSINESS.name, creatorSlug: 'booyahstudio', isPlatformProduct: true, membershipEligible: false }); }
 export async function filterMarketplaceCatalog<T extends Product>(products: T[]): Promise<T[]> {
   const annotated = annotatePlatformProducts(products), thirdParty = annotated.filter(p => p.sellerId !== 'booyahstudio');
   if (!thirdParty.length) return annotated;

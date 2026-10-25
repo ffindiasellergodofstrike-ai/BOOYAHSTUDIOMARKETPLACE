@@ -1,10 +1,10 @@
-MANISH KUMAR SONKAR | Booyahstudio
+MANISH KUMAR SONKAR | BooyahMarket
 
 # Orders, Payments & Verification
 
 Updated: October 23, 2026
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
@@ -18,4 +18,4 @@ Prices are displayed in INR and the final payable total, including any applicabl
 
 A browser success screen, screenshot or debit SMS alone does not confirm payment. We verify payment using trusted server-side webhooks and API checks with Cashfree; existing Razorpay purchases are supported where configured. Download access is granted only after the payment provider confirms a successful payment matching the order. Failed, cancelled, pending, test or unverified transactions do not unlock a paid product.
 
-Booyahstudio sells its own digital products directly. We do not collect payments on behalf of third-party sellers through this storefront.
+BooyahMarket sells its own digital products directly. We do not collect payments on behalf of third-party sellers through this storefront.

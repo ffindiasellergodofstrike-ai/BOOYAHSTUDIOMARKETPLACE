@@ -1,4 +1,5 @@
 import { Store } from './store';
+import { BUSINESS } from '../src/config/business';
 import { mergeProductCatalog } from './productCatalog';
 import { filterMarketplaceCatalog } from './creatorMarketplace';
 import { PRODUCTS } from '../src/data/products';
@@ -21,7 +22,7 @@ function getIndexHtmlShell(): string {
   } else if (fs.existsSync(rootIndexPath)) {
     cachedIndexHtml = fs.readFileSync(rootIndexPath, 'utf8');
   } else {
-    cachedIndexHtml = `<!doctype html><html lang="en"><head><meta charset="UTF-8"><title>Booyahstudio</title></head><body><div id="root"></div></body></html>`;
+    cachedIndexHtml = `<!doctype html><html lang="en"><head><meta charset="UTF-8"><title>${BUSINESS.name}</title></head><body><div id="root"></div></body></html>`;
   }
 
   return cachedIndexHtml;

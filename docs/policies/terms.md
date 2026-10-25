@@ -1,6 +1,6 @@
 # Terms & Conditions
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
@@ -8,21 +8,21 @@ Grievance contact: MANISH KUMAR SONKAR, at the same email and address.
 
 Last updated: October 23, 2026
 
-- Trading name: Booyahstudio, owned and operated by MANISH KUMAR SONKAR.
-- Digital products from Booyahstudio and approved independent creators; the publisher is identified on each listing and order. Third-party components retain their licenses.
+- Trading name: BooyahMarket, owned and operated by MANISH KUMAR SONKAR.
+- Digital products from BooyahMarket and approved independent creators; the publisher is identified on each listing and order. Third-party components retain their licenses.
 - Prices and the final total are shown in INR before payment. Only verified successful payments unlock paid downloads.
 - Electronic delivery through your account Downloads section, normally immediately after verification; allow up to 24 hours for a delay.
 - License, copyright, support and grievance details apply alongside your non-excludable consumer rights.
 
 ## 1. Business & Contact Information
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
 Grievance contact: MANISH KUMAR SONKAR, at the same email and address.
 
-Booyahstudio is an e-commerce website operated by MANISH KUMAR SONKAR. We operate a digital marketplace for our own website templates and source-code packages and for products published by independent creators. Booyahstudio is the platform operator; the named publisher is responsible for their listing, rights and product-specific support. Platform support and grievance handling remain available through the contact details above. These Terms & Conditions apply to all visitors, registered accounts, orders, product downloads, licenses, and communications on this website.
+BooyahMarket is an e-commerce website operated by MANISH KUMAR SONKAR. We operate a digital marketplace for our own website templates and source-code packages and for products published by independent creators. BooyahMarket is the platform operator; the named publisher is responsible for their listing, rights and product-specific support. Platform support and grievance handling remain available through the contact details above. These Terms & Conditions apply to all visitors, registered accounts, orders, product downloads, licenses, and communications on this website.
 
 ## 2. Scope, Definitions & Account Responsibilities
 
@@ -42,7 +42,7 @@ Prices are displayed in INR and the final payable total, including any applicabl
 
 A browser success screen, screenshot or debit SMS alone does not confirm payment. We verify payment using trusted server-side webhooks and API checks with the provider selected at checkout: Cashfree, Razorpay or Easebuzz, where configured and approved. Download access is granted only after the payment provider confirms a successful payment matching the order. Failed, cancelled, pending, test or unverified transactions do not unlock a paid product.
 
-Products marked “By Booyahstudio” are our own products. Independent creator sales are enabled only after platform review and the relevant payment provider’s marketplace/submerchant activation. Where enabled, the payment provider handles the approved split and settlement arrangement. A marketplace approval is distinct from ordinary payment-gateway approval. We do not offer a customer wallet, stored value or unlicensed money transfer service.
+Products marked “By BooyahMarket” are our own products. Independent creator sales are enabled only after platform review and the relevant payment provider’s marketplace/submerchant activation. Where enabled, the payment provider handles the approved split and settlement arrangement. A marketplace approval is distinct from ordinary payment-gateway approval. We do not offer a customer wallet, stored value or unlicensed money transfer service.
 
 ## 5. Digital Product Delivery, Access & Download Records
 
@@ -60,17 +60,17 @@ Your purchase grants a non-exclusive license to use and customize the listed fil
 
 You may edit the source for the permitted project. Unless an applicable license expressly allows it, you must not resell, relicense, sublicense, share or redistribute the proprietary source package, publish it as a competing downloadable template, or provide public access to the paid files. Third-party and open-source components keep their own license terms, copyright notices and permissions; those terms govern those components.
 
-When your verified payment is accepted, the purchase forms a license contract between you and the publisher named on the listing and order, on the product-specific license and these published terms. For products published by Booyahstudio, MANISH KUMAR SONKAR is that publisher. For independent creator products, the named creator supplies and licenses the product; Booyahstudio operates the marketplace, checkout and protected delivery. This allocation does not remove the platform’s own obligations, published grievance support, eligible refund remedies or non-excludable consumer rights. Publisher business and support details are available on the creator storefront. If a product-specific license is unclear or conflicts with mandatory law, contact support before buying.
+When your verified payment is accepted, the purchase forms a license contract between you and the publisher named on the listing and order, on the product-specific license and these published terms. For products published by BooyahMarket, MANISH KUMAR SONKAR is that publisher. For independent creator products, the named creator supplies and licenses the product; BooyahMarket operates the marketplace, checkout and protected delivery. This allocation does not remove the platform’s own obligations, published grievance support, eligible refund remedies or non-excludable consumer rights. Publisher business and support details are available on the creator storefront. If a product-specific license is unclear or conflicts with mandatory law, contact support before buying.
 
 ## 7. Copyright & Intellectual Property Protection
 
-The original Booyahstudio products, templates, designs, source-code contributions, product descriptions, branding and documentation are created by and owned by MANISH KUMAR SONKAR, Owner of Booyahstudio. Copyright in those original materials is reserved. Buying a download gives the license described in the listing; it does not transfer ownership of the original work.
+The original BooyahMarket products, templates, designs, source-code contributions, product descriptions, branding and documentation are created by and owned by MANISH KUMAR SONKAR, Owner of BooyahMarket. Copyright in those original materials is reserved. Buying a download gives the license described in the listing; it does not transfer ownership of the original work.
 
 Third-party libraries, open-source components, fonts, trademarks and other material lawfully included or referenced retain their respective owners and license terms. Required copyright notices and licenses must remain with those components. This ownership statement does not claim ownership of third-party software or remove rights granted by its licenses.
 
 Unauthorized copying, public mirroring, redistribution or resale of our proprietary downloadable packages is prohibited. This does not prohibit editing the purchased source for a use allowed by your license. For a copyright concern, email connectbooyahstudio@gmail.com with the affected URL or product, a description of the original work and information showing your authority to report it. MANISH KUMAR SONKAR handles these reports at the business address and contact details above.
 
-Independent creators retain ownership of their original products and warrant they have the rights to sell them. Publishing grants the platform a limited license to display the listing and securely deliver purchased files. It does not transfer their copyright to Booyahstudio. Each listing’s publisher and license identify the applicable rights. The statement above about MANISH KUMAR SONKAR applies to original Booyahstudio materials, not independently created seller works.
+Independent creators retain ownership of their original products and warrant they have the rights to sell them. Publishing grants the platform a limited license to display the listing and securely deliver purchased files. It does not transfer their copyright to BooyahMarket. Each listing’s publisher and license identify the applicable rights. The statement above about MANISH KUMAR SONKAR applies to original BooyahMarket materials, not independently created seller works.
 
 ## 8. Acceptable Use & Prohibited Conduct
 
@@ -92,7 +92,7 @@ When responding to a dispute, we may provide relevant order and payment records,
 
 Customer support and grievances: connectbooyahstudio@gmail.com. WhatsApp: +91 7393845435 (https://wa.me/917393845435).
 
-Grievance contact: MANISH KUMAR SONKAR, Owner of Booyahstudio, at S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003, using the same email and WhatsApp number. No separate third-party grievance contact is appointed on this website.
+Grievance contact: MANISH KUMAR SONKAR, Owner of BooyahMarket, at S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003, using the same email and WhatsApp number. No separate third-party grievance contact is appointed on this website.
 
 Include your order reference where available, the account email and a clear description of the issue. The website contact form provides a reference and a copy of the submitted complaint for your records. Do not send passwords, OTPs, UPI PINs, CVVs or full payment-card details. We acknowledge complaints within 48 hours and resolve them within one month, or any shorter period required by applicable law. If an issue requires further investigation, we provide an update and the next steps. These support targets do not delay a shorter refund or non-delivery commitment stated in our policies.
 

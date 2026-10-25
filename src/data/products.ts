@@ -1,4 +1,5 @@
 import { Product, Category, Coupon } from '../types';
+import { BUSINESS } from '../config/business';
 import { NEW_PRODUCTS } from './newProducts';
 
 export const CATEGORIES: Category[] = [
@@ -103,7 +104,7 @@ export const PRODUCTS: Product[] = [
       },
       {
         question: 'What happens if I lose my download link?',
-        answer: 'No worries! You can access all your purchased products anytime by logging into your account dashboard on Booyahstudio. Your digital library is permanently stored in your account.'
+        answer: `No worries! You can access all your purchased products anytime by logging into your account dashboard on ${BUSINESS.name}. Your digital library is permanently stored in your account.`
       },
       {
         question: 'Do I need to know coding to use this template?',
@@ -577,7 +578,7 @@ export const COUPONS: Coupon[] = [
   {
     code: 'SAVE20',
     discountPercent: 20,
-    description: '20% off any digital product on Booyahstudio',
+    description: `20% off any digital product on ${BUSINESS.name}`,
   },
   {
     code: 'LAUNCH50',

@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { Express, RequestHandler } from 'express';
+import { BUSINESS } from '../src/config/business';
 import { z } from 'zod';
 import { Store } from './store';
 import { supabaseAdmin } from './supabase';
@@ -163,7 +164,7 @@ export function registerCashfreeRoutes(app: Express, auth: RequestHandler, limit
           order_id: order.id, order_amount: Number(order.total.toFixed(2)), order_currency:'INR',
           customer_details:{ customer_id:order.userId, customer_name:String(order.customerName || order.customer?.fullName || 'Customer').slice(0,100), customer_email:order.customerEmail, customer_phone:phone },
           order_meta:{ return_url:`${appOrigin()}/checkout?status=pending&orderId=${encodeURIComponent(order.id)}`, notify_url:`${appOrigin()}/api/payments/cashfree/webhook` },
-          order_note:'Booyahstudio digital products',
+          order_note:`${BUSINESS.name} digital products`,
           ...split,
         }, { headers:{'x-idempotency-key':cashfreeIdempotencyKey(`order:${cashfreeConfig().environment}:${order.id}`)} });
       } catch (error) {

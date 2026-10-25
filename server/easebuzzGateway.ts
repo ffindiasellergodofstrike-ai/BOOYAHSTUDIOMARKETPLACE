@@ -1,5 +1,6 @@
 import type { Express, RequestHandler } from 'express';
 import { z } from 'zod';
+import { BUSINESS } from '../src/config/business';
 import { Store } from './store';
 import { supabaseAdmin } from './supabase';
 import { appOrigin } from './config';
@@ -12,12 +13,13 @@ import { createEasebuzzHostedPayment, easebuzzConfig, formatEasebuzzAmount, retr
 
 const identifier = /^[A-Za-z0-9_-]{3,45}$/;
 const paise = (value: unknown) => { const parsed = formatEasebuzzAmount(value); return parsed.valid ? Math.round(parsed.value * 100) : null; };
+const acceptedProductInfo = new Set([`${BUSINESS.name} digital products`, 'Booyahstudio digital products']);
 export function matchesEasebuzzPayment(remote: any, order: any) {
   return Boolean(remote && order?.easebuzzTxnId && String(order.paymentProvider).toLowerCase() === 'easebuzz' &&
     order.paymentEnvironment === easebuzzConfig().environment && remote.txnid === order.easebuzzTxnId &&
     remote.key === process.env.EASEBUZZ_KEY && remote.udf1 === order.id &&
     remote.email === String(order.customerEmail).trim().toLowerCase() && sanitizePhoneNumber(remote.phone) === sanitizePhoneNumber(order.customer?.phone) &&
-    remote.productinfo === 'Booyahstudio digital products' && (!remote.currency || remote.currency === 'INR') &&
+    acceptedProductInfo.has(String(remote.productinfo || '').trim()) && (!remote.currency || remote.currency === 'INR') &&
     paise(remote.amount) === paise(order.total) && paise(order.total)! > 0 &&
     /^[A-Za-z0-9_-]{1,100}$/.test(String(remote.easepayid || '')) &&
     ['success', 'failure', 'pending', 'userCancelled', 'dropped', 'bounced', 'initiated', 'refunded', 'partially_refunded'].includes(remote.status));

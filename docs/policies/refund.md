@@ -1,6 +1,6 @@
 # Refund, Cancellation & Payment Policy
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
@@ -16,17 +16,17 @@ Last updated: October 23, 2026
 
 ## 1. Business & Contact Information
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
 Grievance contact: MANISH KUMAR SONKAR, at the same email and address.
 
-This Refund, Cancellation & Payment Policy governs all financial transactions, order cancellations, duplicate payment resolutions, and refund requests on Booyahstudio.
+This Refund, Cancellation & Payment Policy governs all financial transactions, order cancellations, duplicate payment resolutions, and refund requests on BooyahMarket.
 
 ## 2. Digital Product Nature & General Refund Rule
 
-Booyahstudio sells downloadable digital templates and source-code packages. They cannot be physically returned. A purchase is generally final once payment is confirmed and the advertised download access is made available in your account; change-of-mind or accidental-purchase refunds are generally unavailable after this point, whether or not you choose to download.
+BooyahMarket sells downloadable digital templates and source-code packages. They cannot be physically returned. A purchase is generally final once payment is confirmed and the advertised download access is made available in your account; change-of-mind or accidental-purchase refunds are generally unavailable after this point, whether or not you choose to download.
 
 This general rule does not exclude a legitimate duplicate charge, missing or wrong files, material misdescription, unresolved major defect, non-delivery, unauthorized-payment rights or any remedy required by applicable law. Downloading a file does not waive these rights.
 
@@ -76,7 +76,7 @@ The suggested 7-day reporting period is not a limit on a statutory claim, an una
 
 ## 8. Payment Gateways, Verification & Transaction Security
 
-Cashfree, Razorpay or Easebuzz processes the purchase using the provider shown at checkout. Each payment, refund, dispute and subscription renewal remains with its original provider even if the site’s default gateway later changes. Payment details are entered on the provider’s checkout. Booyahstudio verifies the payment on the server before granting paid access.
+Cashfree, Razorpay or Easebuzz processes the purchase using the provider shown at checkout. Each payment, refund, dispute and subscription renewal remains with its original provider even if the site’s default gateway later changes. Payment details are entered on the provider’s checkout. BooyahMarket verifies the payment on the server before granting paid access.
 
 If money is debited but your order is pending, contact us with the order/payment reference. We reconcile the provider’s status; a merchant-side verification error does not itself prove payment success or automatically initiate a refund. Failed-payment reversals follow the provider and bank process. Test transactions do not create a real purchase or unlock paid files.
 

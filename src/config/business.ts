@@ -12,7 +12,7 @@ export function resolvePublicSiteOrigin(): string {
 }
 /** Public marketplace operator identity supplied by the owner. */
 export const BUSINESS = {
-  name: 'Booyahstudio',
+  name: 'BooyahMarket',
   legalName: '',
   owner: 'MANISH KUMAR SONKAR',
   gstin: '',

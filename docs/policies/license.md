@@ -1,10 +1,10 @@
-MANISH KUMAR SONKAR | Booyahstudio
+MANISH KUMAR SONKAR | BooyahMarket
 
 # Digital Product License & Usage Rules
 
 Updated: October 23, 2026
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
@@ -20,7 +20,7 @@ You may edit the source for the permitted project. Unless an applicable license 
 
 ## 7. Copyright & Intellectual Property Protection
 
-The original Booyahstudio products, templates, designs, source-code contributions, product descriptions, branding and documentation are created by and owned by MANISH KUMAR SONKAR, Owner of Booyahstudio. Copyright in those original materials is reserved. Buying a download gives the license described in the listing; it does not transfer ownership of the original work.
+The original BooyahMarket products, templates, designs, source-code contributions, product descriptions, branding and documentation are created by and owned by MANISH KUMAR SONKAR, Owner of BooyahMarket. Copyright in those original materials is reserved. Buying a download gives the license described in the listing; it does not transfer ownership of the original work.
 
 Third-party libraries, open-source components, fonts, trademarks and other material lawfully included or referenced retain their respective owners and license terms. Required copyright notices and licenses must remain with those components. This ownership statement does not claim ownership of third-party software or remove rights granted by its licenses.
 

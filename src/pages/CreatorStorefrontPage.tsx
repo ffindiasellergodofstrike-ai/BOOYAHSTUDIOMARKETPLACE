@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Mail, MapPin, Package, Phone } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { BUSINESS } from '../config/business';
 import { useProductCatalog } from '../hooks/useProductCatalog';
 import { ProductCard } from '../components/ProductCard';
 import type { Product } from '../types';
@@ -26,7 +27,7 @@ export const CreatorStorefrontPage: React.FC = () => {
   }, [slug]);
   useEffect(() => { void load(); }, [load]);
   const companyFallback = !!error && !missing && slug === 'booyahstudio';
-  const profile = companyFallback ? { id: 'booyahstudio', slug, displayName: 'Booyahstudio', headline: 'A better starting point for your next big idea.', bio: 'Original digital products, thoughtfully made by Booyahstudio. Explore our collection of ready-to-use resources and make something your own.', isPlatform: true } as CreatorCard : creator;
+  const profile = companyFallback ? { id: 'booyahstudio', slug, displayName: BUSINESS.name, headline: 'A better starting point for your next big idea.', bio: `Original digital products, thoughtfully made by ${BUSINESS.name}. Explore our collection of ready-to-use resources and make something your own.`, isPlatform: true } as CreatorCard : creator;
   const items = companyFallback ? catalog.filter(p => !p.sellerId || p.sellerId === 'booyahstudio') : products;
   return <main className="market-page"><div className="studio-container">
     <button className="market-breadcrumb" onClick={() => navigate('/creators')}><ArrowLeft size={15}/> All creators</button>

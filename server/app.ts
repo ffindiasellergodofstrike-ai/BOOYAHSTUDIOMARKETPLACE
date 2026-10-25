@@ -504,7 +504,7 @@ const handleOrderCreation = async (req: AuthenticatedRequest, res: Response) => 
 
       validatedItems.push({
         sellerId: matchedProduct.sellerId || 'booyahstudio',
-        sellerName: matchedProduct.sellerName || 'Booyahstudio',
+        sellerName: matchedProduct.sellerName || BUSINESS.name,
         creatorSlug: matchedProduct.creatorSlug || 'booyahstudio',
         productId: matchedProduct.id,
         productTitle: matchedProduct.title,

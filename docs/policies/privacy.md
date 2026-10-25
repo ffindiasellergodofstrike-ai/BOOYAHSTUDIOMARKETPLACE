@@ -1,6 +1,6 @@
 # Privacy Policy
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
@@ -8,7 +8,7 @@ Grievance contact: MANISH KUMAR SONKAR, at the same email and address.
 
 Last updated: October 23, 2026
 
-- Explains how Booyahstudio collects, uses, stores, and protects your personal data.
+- Explains how BooyahMarket collects, uses, stores, and protects your personal data.
 - Covers account details, order history, payment verification info, download logs, and email communications.
 - We do not store full credit card numbers, UPI PINs, or banking passwords.
 - Data is never sold to third parties; shared only with essential service providers (e.g. payment processors).
@@ -16,13 +16,13 @@ Last updated: October 23, 2026
 
 ## 1. Business & Contact Information
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
 Grievance contact: MANISH KUMAR SONKAR, at the same email and address.
 
-This Privacy Policy explains how Booyahstudio (operated by MANISH KUMAR SONKAR) collects, uses, discloses, and safeguards your personal data when you visit our website, register an account, or purchase digital templates.
+This Privacy Policy explains how BooyahMarket (operated by MANISH KUMAR SONKAR) collects, uses, discloses, and safeguards your personal data when you visit our website, register an account, or purchase digital templates.
 
 ## 2. Information We Collect
 
@@ -41,9 +41,9 @@ We use essential session cookies and local browser storage to keep you logged in
 
 ## 4. Payment Processing & Service Providers
 
-Payment information is entered on the payment provider’s checkout, including Cashfree, Razorpay and Easebuzz where enabled. Booyahstudio does not ask for or store card security codes (CVV), UPI PINs, banking passwords or payment OTPs. Necessary transaction references and payment status are retained to verify orders and provide support.
+Payment information is entered on the payment provider’s checkout, including Cashfree, Razorpay and Easebuzz where enabled. BooyahMarket does not ask for or store card security codes (CVV), UPI PINs, banking passwords or payment OTPs. Necessary transaction references and payment status are retained to verify orders and provide support.
 
-We share only the data necessary to operate the store with service providers for authentication and data storage (including Supabase), hosting (including Vercel), transactional email (including Resend), and payment processing (including Cashfree, Razorpay, Easebuzz and the original processor for an existing order). These services may process data outside your region according to their service terms and privacy practices. They are not appointed as alternative owners or grievance contacts for Booyahstudio.
+We share only the data necessary to operate the store with service providers for authentication and data storage (including Supabase), hosting (including Vercel), transactional email (including Resend), and payment processing (including Cashfree, Razorpay, Easebuzz and the original processor for an existing order). These services may process data outside your region according to their service terms and privacy practices. They are not appointed as alternative owners or grievance contacts for BooyahMarket.
 
 For approved marketplace payments, necessary seller identity/payout details and the order’s split amounts are provided to the selected provider for onboarding, verification, settlement and compliance. A creator sees only the order information needed to fulfill and support their own sales; they cannot see another creator’s orders or private KYC. Relevant transaction and evidence records may be supplied to the original provider for a dispute. We never send customer passwords, service keys, UPI PINs or all customers’ data as payment metadata.
 
@@ -73,4 +73,4 @@ In the event of a payment dispute, fraud investigation, or legal inquiry, releva
 
 You may view or update available account details by signing in, or contact connectbooyahstudio@gmail.com to request access, correction or deletion of your personal information. We may need to verify that the request comes from the account holder. Records required for payment, tax, accounting, fraud prevention or legal obligations may need to be retained even when an account is deleted.
 
-Privacy and grievance contact: MANISH KUMAR SONKAR, Owner of Booyahstudio, at connectbooyahstudio@gmail.com and the business address stated above. WhatsApp: +91 7393845435 (https://wa.me/917393845435). We acknowledge complaints within 48 hours and resolve them within one month, or any shorter period required by applicable law.
+Privacy and grievance contact: MANISH KUMAR SONKAR, Owner of BooyahMarket, at connectbooyahstudio@gmail.com and the business address stated above. WhatsApp: +91 7393845435 (https://wa.me/917393845435). We acknowledge complaints within 48 hours and resolve them within one month, or any shorter period required by applicable law.

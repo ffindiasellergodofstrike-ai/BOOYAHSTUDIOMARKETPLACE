@@ -37,7 +37,7 @@ export const ORGANIZATION_JSON_LD = {
 };
 export const WEBSITE_JSON_LD = {
   '@context': 'https://schema.org', '@type': 'WebSite', name: BUSINESS.name, url: `${BASE_URL}/`,
-  description: 'Digital products, independent creators and memberships on Booyahstudio.',
+  description: `Digital products, independent creators and memberships on ${BUSINESS.name}.`,
   copyrightHolder: { '@type': 'Person', name: BUSINESS.owner },
   potentialAction: { '@type': 'SearchAction', target: `${BASE_URL}/search?q={search_term_string}`, 'query-input': 'required name=search_term_string' },
 };
@@ -48,7 +48,7 @@ function basePage(path: string, title: string, description: string, extra: Parti
   return { title: `${title} | ${BUSINESS.name}`, description, canonicalUrl: `${BASE_URL}${path}`, ogImage: DEFAULT_OG_IMAGE, ogImageAlt: `${title} at ${BUSINESS.name}`, ogType: 'website', noindex: false, statusCode: 200, jsonLd: [ORGANIZATION_JSON_LD], ...extra };
 }
 function notFound(path: string, subject = 'Page'): SEOPageData {
-  return basePage(path, `${subject} not found`, 'This page is unavailable. Explore the Booyahstudio collection of original digital products.', { noindex: true, statusCode: 404, jsonLd: [] });
+  return basePage(path, `${subject} not found`, `This page is unavailable. Explore the ${BUSINESS.name} collection of original digital products.`, { noindex: true, statusCode: 404, jsonLd: [] });
 }
 export function getSEOPageData(pathname: string, _searchParams: Record<string, string> = {}, products: typeof PRODUCTS = PRODUCTS): SEOPageData {
   const path = cleanPagePath(pathname);
@@ -56,7 +56,7 @@ export function getSEOPageData(pathname: string, _searchParams: Record<string, s
   const privateRoute = PRIVATE_PAGE_PATHS.find(route => path === route || path.startsWith(`${route}/`));
   if (privateRoute) {
     const titles: Record<string, string> = { '/creator': 'Your storefront', '/memberships': 'Your memberships', '/admin': 'Manage store', '/account': 'Your account', '/account/orders': 'Your orders', '/account/downloads': 'Your downloads', '/account/settings': 'Account settings', '/checkout': 'Checkout', '/cart': 'Your cart', '/login': 'Sign in', '/register': 'Create an account', '/forgot-password': 'Reset your password', '/wishlist': 'Your wishlist', '/search': 'Search the collection' };
-    return basePage(path, titles[path] || titles[privateRoute], 'Sign in to manage your purchases, orders and downloads at Booyahstudio.', { noindex: true, ogImageAlt: `${BUSINESS.name} account and purchases` });
+    return basePage(path, titles[path] || titles[privateRoute], `Sign in to manage your purchases, orders and downloads at ${BUSINESS.name}.`, { noindex: true, ogImageAlt: `${BUSINESS.name} account and purchases` });
   }
   if (path.startsWith('/store/') || path.startsWith('/creators/')) {
     const prefix = path.startsWith('/store/') ? '/store/' : '/creators/';
@@ -65,7 +65,7 @@ export function getSEOPageData(pathname: string, _searchParams: Record<string, s
     const product = activeProducts.find(item => (item.creatorSlug || 'booyahstudio') === slug);
     if (prefix === '/creators/' && slug !== 'booyahstudio' && !product) return notFound(path, 'Creator');
     const name = product?.sellerName || (slug === 'booyahstudio' ? BUSINESS.name : 'Creator storefront');
-    return basePage(`/store/${encodeURIComponent(slug)}`, `${name} – Digital products`, `Explore digital products published by ${name} on Booyahstudio. Review the files, requirements and license before purchasing.`);
+    return basePage(`/store/${encodeURIComponent(slug)}`, `${name} – Digital products`, `Explore digital products published by ${name} on ${BUSINESS.name}. Review the files, requirements and license before purchasing.`);
   }
   if (path.startsWith('/product/')) {
     const slug = decodeSlug(path.slice('/product/'.length));
@@ -96,15 +96,15 @@ export function getSEOPageData(pathname: string, _searchParams: Record<string, s
     return basePage(policyPath, policy.title, policy.quickSummary?.[0] || `${policy.title} for purchases at ${BUSINESS.name}.`, { ogType: 'article', jsonLd: [ORGANIZATION_JSON_LD, breadcrumbs([{ name: 'Home', path: '/' }, { name: 'Policies', path: '/policies/terms' }, { name: policy.title, path: policyPath }])] });
   }
   const pages: Record<string, [string, string]> = {
-    '/creators': ['Meet the creators', 'Discover independent makers and explore their digital products and memberships on Booyahstudio.'],
-    '/pricing': ['Create your storefront', 'Start selling digital products on Booyahstudio. Explore creator plans, listing limits and membership options.'],
+    '/creators': ['Meet the creators', `Discover independent makers and explore their digital products and memberships on ${BUSINESS.name}.`],
+    '/pricing': ['Create your storefront', `Start selling digital products on ${BUSINESS.name}. Explore creator plans, listing limits and membership options.`],
     '/products': ['All Templates & Digital Products', 'Explore original website templates and digital products. Check the included files, live demos, prices and license before choosing your next starting point.'],
-    '/about': ['Our Story', 'Meet Booyahstudio, a digital marketplace operated by MANISH KUMAR SONKAR in Varanasi, India. Original templates for your next idea.'],
-    '/contact': ['Contact & Customer Support', 'Contact MANISH KUMAR SONKAR at Booyahstudio for help with purchases, downloads and grievances. Email or WhatsApp support in Varanasi, India.'],
-    '/faq': ['Help & Frequently Asked Questions', 'Find answers about your Booyahstudio purchase, payment confirmation, downloads, license and support.'],
+    '/about': ['Our Story', `Meet ${BUSINESS.name}, a digital marketplace operated by MANISH KUMAR SONKAR in Varanasi, India. Original templates for your next idea.`],
+    '/contact': ['Contact & Customer Support', `Contact MANISH KUMAR SONKAR at ${BUSINESS.name} for help with purchases, downloads and grievances. Email or WhatsApp support in Varanasi, India.`],
+    '/faq': ['Help & Frequently Asked Questions', `Find answers about your ${BUSINESS.name} purchase, payment confirmation, downloads, license and support.`],
   };
   if (pages[path]) return basePage(path, ...pages[path], { jsonLd: [ORGANIZATION_JSON_LD, breadcrumbs([{ name: 'Home', path: '/' }, { name: pages[path][0], path }])] });
-  if (path === '/') return basePage('/', 'Booyahstudio – Original Website Templates & Digital Products', 'Thoughtfully crafted digital products from Booyahstudio and independent creators. Explore the demos, find your fit and make your next idea your own.', { title: 'Booyahstudio – Original Website Templates & Digital Products', jsonLd: [ORGANIZATION_JSON_LD, WEBSITE_JSON_LD] });
+  if (path === '/') return basePage('/', `${BUSINESS.name} – Original Website Templates & Digital Products`, `Thoughtfully crafted digital products from ${BUSINESS.name} and independent creators. Explore the demos, find your fit and make your next idea your own.`, { title: `${BUSINESS.name} – Original Website Templates & Digital Products`, jsonLd: [ORGANIZATION_JSON_LD, WEBSITE_JSON_LD] });
   return notFound(path);
 }
 

@@ -1,10 +1,10 @@
-MANISH KUMAR SONKAR | Booyahstudio
+MANISH KUMAR SONKAR | BooyahMarket
 
 # Payment Gateways, Verification & Transaction Security
 
 Updated: October 23, 2026
 
-MANISH KUMAR SONKAR Owner of Booyahstudio
+MANISH KUMAR SONKAR Owner of BooyahMarket
 Address: S-8/88 A-1, Panchkosi Road, PURANI CHUNGI, SHIVPUR, Varanasi, Varanasi, Uttar Pradesh, 221003
 Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
@@ -14,7 +14,7 @@ This topic is part of the current [Refund, Cancellation & Payment Policy](https:
 
 ## 8. Payment Gateways, Verification & Transaction Security
 
-Cashfree processes new online payments where live checkout is enabled; existing purchases made using another configured provider continue to be handled through that provider. Payment details are entered on the provider’s checkout. Booyahstudio verifies the payment on the server before granting paid access.
+Cashfree processes new online payments where live checkout is enabled; existing purchases made using another configured provider continue to be handled through that provider. Payment details are entered on the provider’s checkout. BooyahMarket verifies the payment on the server before granting paid access.
 
 If money is debited but your order is pending, contact us with the order/payment reference. We reconcile the provider’s status; a merchant-side verification error does not itself prove payment success or automatically initiate a refund. Failed-payment reversals follow the provider and bank process. Test transactions do not create a real purchase or unlock paid files.
 

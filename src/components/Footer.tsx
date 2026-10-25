@@ -62,7 +62,7 @@ export const Footer: React.FC = () => {
             <button
               className="studio-brand"
               onClick={() => navigate('/')}
-              aria-label="Booyahstudio Home"
+              aria-label="BooyahMarket Home"
             >
               <Brand />
             </button>

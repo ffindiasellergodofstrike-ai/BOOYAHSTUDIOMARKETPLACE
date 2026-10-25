@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { Express, RequestHandler, Request } from 'express';
+import { BUSINESS } from '../src/config/business';
 import { z } from 'zod';
 import { supabaseAdmin } from './supabase';
 import { Store } from './store';
@@ -318,7 +319,7 @@ export async function reconcileSubscription(record:SubscriptionRecord,event?:Bil
     for(const p of receipts.items){const verified=await verifyRazorpayReceipt(s,p,{periodStart:attempt.periodStart,periodEnd:attempt.periodEnd},{orderRef:attempt.providerRef,attemptId:attempt.id});if(verified.payment)payments.push(verified.payment);if(verified.revocation)revocations.push(verified.revocation);}
    }else{
     const p=await retrieveEasebuzzPayment(attempt.providerRef!);
-    if((p.currency&&p.currency!=='INR')||p.productinfo!=='Booyahstudio digital products'||p.txnid!==attempt.providerRef||p.key!==process.env.EASEBUZZ_KEY||p.udf1!==s.id||p.udf2!==attempt.id||moneyPaise(p.amount)!==Math.round(s.plan.amount*100)||String(p.email).toLowerCase()!==s.buyer!.email.toLowerCase()||String(p.phone).replace(/\D/g,'').slice(-10)!==s.buyer!.phone)throw new SubscriptionError('Billing payment mismatch.',502);
+    if((p.currency&&p.currency!=='INR')||p.productinfo!==`${BUSINESS.name} digital products`||p.txnid!==attempt.providerRef||p.key!==process.env.EASEBUZZ_KEY||p.udf1!==s.id||p.udf2!==attempt.id||moneyPaise(p.amount)!==Math.round(s.plan.amount*100)||String(p.email).toLowerCase()!==s.buyer!.email.toLowerCase()||String(p.phone).replace(/\D/g,'').slice(-10)!==s.buyer!.phone)throw new SubscriptionError('Billing payment mismatch.',502);
     if(p.status==='success'){
      const id=validRemoteId(p.easepayid);payments.push({id,subscriptionRef:s.providerRef,currency:'INR',amountPaise:Math.round(s.plan.amount*100),periodStart:attempt.periodStart,periodEnd:attempt.periodEnd,attemptId:attempt.id,orderRef:attempt.providerRef});
      const refunded=moneyPaise(p.refund_amount??p.refunded_amount??0),refundStatus=String(p.refund_status||'').toLowerCase();if(refunded===null||refunded>Math.round(s.plan.amount*100))throw new SubscriptionError('Billing refund mismatch.',502);
@@ -449,7 +450,7 @@ export function registerSubscriptionRoutes(app:Express,auth:RequestHandler,admin
   if(id==='starter'&&(input.amount!==0||input.audience!=='creator'))throw new SubscriptionError('Starter remains a free creator plan.');
   if(id!=='starter'&&input.amount<=0)throw new SubscriptionError('Paid plans need a positive price.');
   if(input.audience==='creator'&&input.productLimit===undefined&&input.monthlyProductLimit===undefined)throw new SubscriptionError('Creator plans need an active or monthly product limit.');
-  if(input.audience==='creator'&&input.creatorId)throw new SubscriptionError('Creator plans belong to Booyahstudio.');
+  if(input.audience==='creator'&&input.creatorId)throw new SubscriptionError(`Creator plans belong to ${BUSINESS.name}.`);
   if(input.audience==='customer'&&input.published&&(await getCreatorById(input.creatorId!))?.status!=='approved')throw new SubscriptionError('Only approved creators can publish memberships.');
   if(input.audience==='customer'&&input.published&&(!await creatorHasCurrentAgreement(input.creatorId!)||!(await getCreatorById(input.creatorId!))?.publicBusiness))throw new SubscriptionError('The creator must complete the current seller agreement and required business disclosures.');
   res.json({success:true,plan:await billingOperation('save_plan',id,{plan:{...input,id,updatedAt:nowIso()},actorId:req.userId,reason:reason.trim(),auditId:`audit_${crypto.randomUUID().replaceAll('-','')}`})});
