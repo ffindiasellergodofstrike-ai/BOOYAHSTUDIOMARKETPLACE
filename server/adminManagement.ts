@@ -7,7 +7,7 @@ import { supabaseAdmin } from './supabase';
 
 /** Mount only behind the application's requireAdmin middleware. */
 export const adminManagementRouter = Router();
-export const MAX_PRIVATE_ZIP_BYTES = 50 * 1024 * 1024;
+export const MAX_PRIVATE_ZIP_BYTES = 10 * 1024 * 1024;
 const identifier = z.string().regex(/^[A-Za-z0-9_-]{1,100}$/);
 const reason = z.string().trim().min(10).max(1000);
 const short = (value: unknown, max = 1000) => typeof value === 'string' ? value.slice(0, max) : '';

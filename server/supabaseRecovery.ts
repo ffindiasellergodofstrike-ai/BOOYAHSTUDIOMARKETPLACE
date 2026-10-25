@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { supabaseAuth, supabaseFetch } from './supabase';
+import { supabaseAuth, supabaseFetch, supabaseCredentials } from './supabase';
 import { Store } from './store';
 
 export class RecoveryError extends Error {
@@ -20,7 +20,7 @@ export async function verifyRecoveryBearer(accessToken: string) {
   if (verified.error || !verified.data?.claims) throw providerError(verified.error);
   const claims = verified.data.claims;
   const now = Date.now() / 1000;
-  const expectedIssuer = `${process.env.SUPABASE_URL!.replace(/\/+$/, '')}/auth/v1`;
+  const expectedIssuer = `${supabaseCredentials().url.replace(/\/+$/, '')}/auth/v1`;
   const audience = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
   // GoTrue's default implicit recovery verification uses OTP AMR. Both represent
   // verified email possession; the URL's type=recovery is never authorization.
@@ -49,8 +49,10 @@ export async function claimRecoverySession(sessionId: string): Promise<void> {
 /** Use exactly the verified bearer, not a service key or a client-supplied refresh token. */
 export async function updatePasswordWithBearer(accessToken: string, password: string): Promise<void> {
   try {
-    const response = await supabaseFetch(`${process.env.SUPABASE_URL!.replace(/\/+$/, '')}/auth/v1/user`, {
-      method: 'PUT', redirect: 'error', headers: { apikey: process.env.SUPABASE_ANON_KEY!, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    const config = supabaseCredentials();
+    if (!config.url || !config.publishableKey) throw unavailable();
+    const response = await supabaseFetch(`${config.url.replace(/\/+$/, '')}/auth/v1/user`, {
+      method: 'PUT', redirect: 'error', headers: { apikey: config.publishableKey, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),
     });
     if (!response.ok) throw new RecoveryError(400, 'RECOVERY_RESTART', 'Password could not be updated. Request a new recovery email and try again.');

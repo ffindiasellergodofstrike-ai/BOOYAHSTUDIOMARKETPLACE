@@ -110,7 +110,9 @@ export async function reconcileDisputes(limit = 3) {
     } else if (task === 'cashfree') {
       const order = cfOrders[0];
       // Mark even failed discovery so one unhealthy order cannot starve all other payments.
-      await Store.set(`operations/disputeChecks/${order.id}`, new Date().toISOString());
+      const lastCheck = Math.max(0, ...Object.values(checks).map(value => Date.parse(String(value))).filter(Number.isFinite));
+      // Preserve rotation even when multiple attempts finish in the same millisecond.
+      await Store.set(`operations/disputeChecks/${order.id}`, new Date(Math.max(Date.now(), lastCheck + 1)).toISOString());
       try {
         const response = await cashfreeRequest(`payments/${order.transactionId}/disputes`);
         const rows = Array.isArray(response) ? response : Array.isArray(response?.data) ? response.data : null;

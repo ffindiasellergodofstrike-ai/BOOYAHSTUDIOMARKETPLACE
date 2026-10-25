@@ -31,6 +31,7 @@ test('both scheduled routes require a bearer secret, reconcile durable modules a
       if (body.operation === 'state') return Response.json(billing);
       if (body.operation === 'seed_plan') { billing.plans[body.key] = body.value; return Response.json(body.value); }
     }
+    if (endpoint === 'settlement_operation' && body.operation === 'state') return Response.json({ settlements: {}, riskCases: {}, ledger: {}, audit: {} });
     throw new Error('Unexpected persistence request');
   };
   const { app } = await import('./app');

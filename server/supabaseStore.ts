@@ -1,8 +1,8 @@
 /** Server-only Postgres document adapter. Never import this module into the browser. */
+import { supabaseCredentials } from './supabase';
 export const usesSupabase = () => process.env.DATABASE_PROVIDER === 'supabase';
 export async function supabaseRpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
-  const base = process.env.SUPABASE_URL;
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const { url: base, secretKey: secret } = supabaseCredentials();
   if (!base || !secret) throw new Error('Supabase server credentials are required.');
   const url = new URL(base);
   if (url.protocol !== 'https:' && !(process.env.NODE_ENV !== 'production' && ['localhost', '127.0.0.1'].includes(url.hostname))) throw new Error('Supabase requires HTTPS.');

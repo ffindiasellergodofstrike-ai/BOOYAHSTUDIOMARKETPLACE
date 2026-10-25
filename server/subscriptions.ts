@@ -1,30 +1,28 @@
 import crypto from 'node:crypto';
 import type { Express, RequestHandler, Request } from 'express';
 import { z } from 'zod';
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin, isSupabaseAdminConfigured } from './supabase';
 import { Store } from './store';
 import { appOrigin } from './config';
 import { cashfreeConfig, cashfreeRequest, cashfreeIdempotencyKey, verifyCashfreeSignature, moneyPaise } from './cashfree';
 import { paymentEnvironment, razorpayRequest, verifySignature } from './razorpay';
 import { getActiveGateway, getGatewayCapabilities, getGatewaySettings, assertGatewayForNewOrder } from './gatewayControl';
 import { createEasebuzzHostedPayment, retrieveEasebuzzPayment, verifyEasebuzzCallbackHash, easebuzzConfig } from './easebuzz';
-import { verifyCreatorGatewayAccount } from './gatewaySplits';
+import { verifyCreatorGatewayAccount, assertMembershipReservePolicy } from './gatewaySplits';
 import { razorpayBillingList } from './subscriptionProviders';
 import { getCreatorByUserId, getCreatorById, getCreatorProviderDetails, creatorHasCurrentAgreement } from './creatorMarketplace';
-import type { SubscriptionPlan, SubscriptionSummary, SubscriptionCheckout, SubscriptionProvider } from '../src/types/subscription';
+import type { SubscriptionPlan, SubscriptionSummary, SubscriptionCheckout, SubscriptionProvider, CreatorEntitlements } from '../src/types/subscription';
 import { policyVersion, policyDocuments } from './policies';
+import { CREATOR_PLANS, LEGACY_CREATOR_PLAN_IDS, isPublicCreatorPlan, creatorPlanFeatures, creatorPlanQuota, BASIC_CREATOR_FEATURES } from './creatorPlans';
+import { MARKETPLACE_ITEM_FEE_PAISE, membershipCommissionPaise } from './marketplaceFees';
 
 type PaidPeriod = { id:string; subscriptionRef:string; currency:'INR'; amountPaise:number; periodStart:string; periodEnd:string; verified?:boolean; revoked?:boolean; attemptId?:string; orderRef?:string };
 type Attempt = {id:string; createdAt:string; periodStart:string; periodEnd:string; status:string; providerRef?:string; checkout?:SubscriptionCheckout;creationAttemptedAt?:string};
-type SubscriptionRecord = {id:string; userId:string; planId:string; plan:SubscriptionPlan; provider:SubscriptionProvider; environment:'live'|'test'; createdAt:string; status:string; cancelAtPeriodEnd:boolean; providerRef?:string; providerPlanId?:string; checkout?:SubscriptionCheckout; payments:Record<string,PaidPeriod>; attempts:Record<string,Attempt>; buyer?:{email:string;phone:string;name:string}; split?:{accountId:string;commissionBps:number}; firstChargeAt?:string; lastCheckedAt?:string;checkoutLeaseUntil?:string};
+type SubscriptionRecord = {id:string; userId:string; planId:string; plan:SubscriptionPlan; provider:SubscriptionProvider; environment:'live'|'test'; createdAt:string; status:string; cancelAtPeriodEnd:boolean; providerRef?:string; providerPlanId?:string; checkout?:SubscriptionCheckout; payments:Record<string,PaidPeriod>; attempts:Record<string,Attempt>; buyer?:{email:string;phone:string;name:string}; split?:{accountId:string;commissionBps:number;commissionModel?:'fixed_per_item';commissionPaise?:number;reservePolicyVersion?:string}; firstChargeAt?:string; lastCheckedAt?:string;checkoutLeaseUntil?:string};
 type BillingEvent = {id:string; provider:SubscriptionProvider; subscriptionId:string; status:string; refundId?:string; paymentId?:string; disputeId?:string; receivedAt:string};
 type BillingState = {plans:Record<string,SubscriptionPlan>; subscriptions:Record<string,SubscriptionRecord>; payments:Record<string,string>; events:Record<string,BillingEvent>;audit?:Record<string,any>};
 const idPattern=/^[A-Za-z0-9_-]{1,100}$/;
-const defaults:SubscriptionPlan[]=[
- {id:'starter',name:'Starter',description:'Start your creator journey.',audience:'creator',amount:0,currency:'INR',interval:'month',billingMode:'manual',published:true,productLimit:5,features:['5 product listings','Your own storefront','Order management']},
- {id:'creator',name:'Creator',description:'Build and publish up to 10 original products every month.',audience:'creator',amount:499,currency:'INR',interval:'month',billingMode:'manual',published:true,productLimit:null,monthlyProductLimit:10,features:['Up to 10 new products per month','Standard creator tools','Your own public storefront','Order management']},
- {id:'studio',name:'Pro',description:'Create without monthly product limits and unlock every creator feature.',audience:'creator',amount:899,currency:'INR',interval:'month',billingMode:'manual',published:true,productLimit:null,monthlyProductLimit:null,features:['Unlimited product creation','All creator features','Your own public storefront','Order management and earnings']},
-];
+const defaults:SubscriptionPlan[]=CREATOR_PLANS;
 export class SubscriptionError extends Error { constructor(message:string,public status=400){super(message);} }
 /** No filesystem/Firebase fallback: a failed durable write must stop checkout. */
 export async function billingOperation<T=any>(operation:string,key='',value:any=null):Promise<T>{
@@ -56,19 +54,20 @@ export function subscriptionSummary(s:SubscriptionRecord):SubscriptionSummary{
  const period=currentPaidPeriod(s); const last=period||values(s.payments).filter(p=>p.verified&&!p.revoked).sort((a,b)=>Date.parse(b.periodEnd)-Date.parse(a.periodEnd))[0];
  return {id:s.id,userId:s.userId,planId:s.plan.id,planName:s.plan.name,audience:s.plan.audience,creatorId:s.plan.creatorId,provider:s.provider,environment:s.environment,billingMode:s.plan.billingMode,status:period?(s.cancelAtPeriodEnd?'cancel_scheduled':'active'):(s.cancelAtPeriodEnd?'cancel_scheduled':values(s.payments).some(p=>p.revoked)?'refunded':last&&Date.parse(last.periodEnd)<=Date.now()?'expired':s.status==='active'?'expired':s.status),amount:s.plan.amount,currency:'INR',interval:s.plan.interval,currentPeriodStart:last?.periodStart,currentPeriodEnd:last?.periodEnd,cancelAtPeriodEnd:s.cancelAtPeriodEnd,createdAt:s.createdAt,hasAccess:Boolean(period),checkoutQuote:subscriptionCheckoutQuote(s.plan)};
 }
-async function publicPlans(){return process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY?values((await state()).plans):defaults;}
-export async function getCreatorPlanSummaries(){return (await publicPlans()).filter(p=>p.audience==='creator'&&p.published).map(plan=>({...plan,checkoutQuote:subscriptionCheckoutQuote(plan)}));}
+async function publicPlans(){return isSupabaseAdminConfigured()?values((await state()).plans):defaults;}
+export async function getCreatorPlanSummaries(){return (await publicPlans()).filter(p=>p.audience==='creator'&&p.published&&isPublicCreatorPlan(p)).map(plan=>({...plan,checkoutQuote:subscriptionCheckoutQuote(plan)}));}
 export async function getBillingAudit(){return values((await state()).audit);}
-export async function getCreatorEntitlements(userId:string):Promise<{planId:string;productLimit:number|null;monthlyProductLimit:number|null;expiresAt?:string;subscriptionId?:string}>{
- const data=await state(); const starter=data.plans.starter;
- let result:{planId:string;productLimit:number|null;monthlyProductLimit:number|null;expiresAt?:string;subscriptionId?:string}={planId:'starter',productLimit:starter?.productLimit??5,monthlyProductLimit:starter?.monthlyProductLimit??starter?.productLimit??5};
+export async function getCreatorEntitlements(userId:string):Promise<CreatorEntitlements>{
+ const data=await state();
+ let result:CreatorEntitlements={planId:'no_paid_plan',productLimit:0,unlimited:false,paid:false,productQuota:'billing_period_creations',features:{...BASIC_CREATOR_FEATURES,secureDownloads:false}};
  for(const record of values(data.subscriptions)){
   if(record.userId!==userId||record.plan.audience!=='creator') continue;
   let fresh=record;if(record.environment==='live'&&(!record.lastCheckedAt||Date.parse(record.lastCheckedAt)<Date.now()-15*60_000)){try{fresh=await reconcileSubscription(record);}catch{continue;}}
-    const period=currentPaidPeriod(fresh); if(!period) continue;
-    const monthlyProductLimit=record.plan.monthlyProductLimit===undefined?record.plan.productLimit??null:record.plan.monthlyProductLimit;
-    if(monthlyProductLimit!==null&&result.monthlyProductLimit!==null&&monthlyProductLimit<=result.monthlyProductLimit) continue;
-    result={planId:record.plan.id,productLimit:record.plan.productLimit??null,monthlyProductLimit,expiresAt:period.periodEnd,subscriptionId:record.id};
+  const period=currentPaidPeriod(fresh),quota=creatorPlanQuota(record.plan),limit=quota.productLimit;
+  if(!period||!(limit===null||Number.isSafeInteger(limit)&&Number(limit)>0)) continue;
+  const rank=limit===null?Number.POSITIVE_INFINITY:Number(limit),currentRank=result.unlimited?Number.POSITIVE_INFINITY:result.productLimit||0;
+  if(result.paid&&(rank<currentRank||rank===currentRank&&Date.parse(period.periodEnd)<=Date.parse(result.periodEnd||'')))continue;
+  result={planId:record.plan.id,productLimit:limit!,unlimited:limit===null,paid:true,periodStart:period.periodStart,periodEnd:period.periodEnd,expiresAt:period.periodEnd,paymentId:period.id,quotaKey:`${record.id}_${period.id}`,subscriptionId:record.id,productQuota:quota.productQuota,features:creatorPlanFeatures(record.plan)};
  }
  return result;
 }
@@ -95,19 +94,19 @@ export async function getCreatorMembershipEarnings(creatorId:string){
    const revocation=(p as any).revocation;
    const refundedPaise=p.revoked?Number.isSafeInteger(revocation?.amountPaise)?Math.min(p.amountPaise,Math.max(0,revocation.amountPaise)):p.amountPaise:0;
    const retainedPaise=p.amountPaise-refundedPaise,commissionBps=s.split.commissionBps;
-   const grossCommissionPaise=Math.floor(p.amountPaise*commissionBps/10000),commissionPaise=Math.floor(retainedPaise*commissionBps/10000);
-   earnings.push({id:`membership_${s.id}_${p.id}`,subscriptionId:s.id,paymentId:p.id,creatorId,planName:s.plan.name,provider:s.provider,currency:'INR' as const,grossPaise:p.amountPaise,refundedPaise,commissionBps,grossCommissionPaise,commissionPaise,sellerPaise:p.amountPaise-grossCommissionPaise,netSellerPaise:retainedPaise-commissionPaise,periodStart:p.periodStart,periodEnd:p.periodEnd,status:p.revoked?'adjusted' as const:'payable' as const,settlementStatus:'provider_confirmation_required' as const});
+   const grossCommissionPaise=membershipCommissionPaise(p.amountPaise,s.split),commissionPaise=retainedPaise===0?0:s.split.commissionModel==='fixed_per_item'?Math.floor(grossCommissionPaise*retainedPaise/p.amountPaise):Math.floor(retainedPaise*commissionBps/10000);
+   earnings.push({...(s.split.commissionModel?{commissionModel:s.split.commissionModel,unitCommissionPaise:s.split.commissionPaise}:{}),id:`membership_${s.id}_${p.id}`,subscriptionId:s.id,paymentId:p.id,creatorId,planName:s.plan.name,provider:s.provider,currency:'INR' as const,grossPaise:p.amountPaise,refundedPaise,commissionBps,grossCommissionPaise,commissionPaise,sellerPaise:p.amountPaise-grossCommissionPaise,netSellerPaise:retainedPaise-commissionPaise,periodStart:p.periodStart,periodEnd:p.periodEnd,status:p.revoked?'adjusted' as const:'payable' as const,settlementStatus:'provider_confirmation_required' as const});
   }
  }
  return {entries:earnings,grossPaise:earnings.reduce((sum,p)=>sum+p.grossPaise,0),commissionPaise:earnings.reduce((sum,p)=>sum+p.commissionPaise,0),payablePaise:earnings.reduce((sum,p)=>sum+p.netSellerPaise,0),refundPaise:earnings.reduce((sum,p)=>sum+p.refundedPaise,0)};
 }
-const planInput=z.object({name:z.string().trim().min(2).max(70),description:z.string().trim().max(400).default(''),audience:z.enum(['creator','customer']),creatorId:z.string().regex(idPattern).optional(),amount:z.number().min(0).max(100000).refine(v=>moneyPaise(v)!==null,'Use at most two decimal places.'),currency:z.literal('INR').default('INR'),interval:z.enum(['month','year']).default('month'),billingMode:z.enum(['automatic','manual']).default('manual'),published:z.boolean().default(false),productLimit:z.number().int().min(1).max(10000).nullable().optional(),monthlyProductLimit:z.number().int().min(1).max(10000).nullable().optional(),features:z.array(z.string().trim().min(1).max(120)).max(12).default([])}).strict();
-const parsedPlan=(value:unknown)=>{const parsed=planInput.safeParse(value);if(!parsed.success) throw new SubscriptionError('Please check the plan name, price, billing interval and limits.');return parsed.data;};
+const planInput=z.object({name:z.string().trim().min(2).max(70),description:z.string().trim().max(400).default(''),audience:z.enum(['creator','customer']),creatorId:z.string().regex(idPattern).optional(),amount:z.number().min(0).max(100000).refine(v=>moneyPaise(v)!==null,'Use at most two decimal places.'),currency:z.literal('INR').default('INR'),interval:z.enum(['month','year']).default('month'),billingMode:z.enum(['manual','automatic']).default('manual'),published:z.boolean().default(false),productLimit:z.number().int().min(1).max(10000).nullable().optional(),productQuota:z.enum(['billing_period_creations','active_listings']).optional(),featureAccess:z.object({storefront:z.boolean(),secureDownloads:z.boolean(),orderManagement:z.boolean(),customerMemberships:z.boolean(),advancedAnalytics:z.boolean()}).strict().optional(),catalogVersion:z.number().int().positive().optional(),features:z.array(z.string().trim().min(1).max(120)).max(12).default([])}).strict();
+const parsedPlan=(value:unknown)=>{const parsed=planInput.safeParse(value);if(!parsed.success) throw new SubscriptionError('Please check the plan name, price, billing interval and limits.');const plan=parsed.data;return plan.audience==='creator'?{...plan,productQuota:plan.productQuota||'billing_period_creations',featureAccess:plan.featureAccess||creatorPlanFeatures({...plan,id:'configured',featureAccess:plan.productLimit===null?undefined:BASIC_CREATOR_FEATURES})}:plan;};
 function requireId(value:unknown):string{if(typeof value!=='string'||!idPattern.test(value))throw new SubscriptionError('Invalid billing reference.');return value;}
 async function acceptSubscriptionTerms(s:SubscriptionRecord,userId:string):Promise<SubscriptionRecord>{
  if(s.userId!==userId)throw new SubscriptionError('Subscription not found.',404);
  await Store.set(`policyDocuments/${policyVersion}`,policyDocuments);
- return billingOperation('acceptance',s.id,{id:`agree_${crypto.randomUUID().replaceAll('-','')}`,acceptedBy:userId,acceptedAt:nowIso(),policyVersion,offer:{id:s.plan.id,name:s.plan.name,audience:s.plan.audience,creatorId:s.plan.creatorId,amount:s.plan.amount,currency:s.plan.currency,interval:s.plan.interval,billingMode:s.plan.billingMode,productLimit:s.plan.productLimit,scope:s.plan.audience==='creator'?'published_creator_plan_features':'named_creator_eligible_products'}});
+ return billingOperation('acceptance',s.id,{id:`agree_${crypto.randomUUID().replaceAll('-','')}`,acceptedBy:userId,acceptedAt:nowIso(),policyVersion,offer:{id:s.plan.id,name:s.plan.name,audience:s.plan.audience,creatorId:s.plan.creatorId,amount:s.plan.amount,currency:s.plan.currency,interval:s.plan.interval,billingMode:s.plan.billingMode,productLimit:s.plan.productLimit,productQuota:s.plan.productQuota,featureAccess:s.plan.featureAccess,scope:s.plan.audience==='creator'?'published_creator_plan_features':'named_creator_eligible_products'}});
 }
 async function ownedSubscription(userId:string,id:unknown){const s=(await state()).subscriptions[requireId(id)];if(!s||s.userId!==userId)throw new SubscriptionError('Subscription not found.',404);return s;}
 function providerEnvironment(provider:SubscriptionProvider):'live'|'test'{return provider==='cashfree'?cashfreeConfig().environment as 'live'|'test':provider==='razorpay'?paymentEnvironment():easebuzzConfig().environment as 'live'|'test';}
@@ -128,28 +127,36 @@ async function subscriptionSplit(plan:SubscriptionPlan,provider:SubscriptionProv
  if(plan.audience==='creator'||plan.creatorId==='booyahstudio')return undefined;
  const creator=await getCreatorById(plan.creatorId!);if(!creator||creator.status!=='approved')throw new SubscriptionError('This creator is not accepting memberships.',409);
  if(!creator.publicBusiness||!await creatorHasCurrentAgreement(creator.id))throw new SubscriptionError('This creator is completing the current seller agreement and required business disclosures.',409);
- if(plan.billingMode==='automatic'&&provider==='razorpay')throw new SubscriptionError('Creator memberships use manual renewal with Razorpay. Automatic creator-plan billing is available separately.',409);
+ if(plan.amount<=20)throw new SubscriptionError('A creator membership price must exceed the INR20 platform fee.',409);
+ const entitlement=await getCreatorEntitlements(creator.userId);if(!entitlement.paid||!entitlement.features.customerMemberships)throw new SubscriptionError('This creator needs the Studio plan to accept new membership payments.',409);
+ if(plan.billingMode==='automatic')throw new SubscriptionError('Creator memberships currently use manual renewal so the fixed fee and approved settlement reserve can be verified. Automatic creator-plan billing is available separately.',409);
  const details:any=await getCreatorProviderDetails(plan.creatorId!,provider);
  const capabilities:any=await getGatewayCapabilities(provider);
  if(!capabilities.marketplace||!details)throw new SubscriptionError('Membership payments for this creator are not enabled with the current gateway.',409);
- // Native recurring Route/Easy Split activation must cover recurring collections too.
- if(plan.billingMode==='automatic'&&process.env[provider==='cashfree'?'CASHFREE_SUBSCRIPTION_SPLITS_APPROVED':'RAZORPAY_SUBSCRIPTION_ROUTE_APPROVED']!=='true')throw new SubscriptionError('Recurring membership payments are awaiting gateway activation. A manual renewal plan can be used meanwhile.',409);
  const account:any=details.account;
  if(account?.status!=='verified'||account.environment!==providerEnvironment(provider))throw new SubscriptionError('Creator payout verification is incomplete for this gateway.',409);
  const accountId=provider==='easebuzz'&&typeof account.reference==='string'&&/^[A-Za-z0-9 _-]{1,100}$/.test(account.reference)?account.reference:validRemoteId(account.reference);
  const productId=account.productId||(/^activated:(acc_prd_[A-Za-z0-9]+)$/.exec(account.providerStatus||'')?.[1]);
  await verifyCreatorGatewayAccount(plan.creatorId!,provider,accountId,productId,false);
- const settings:any=await getGatewaySettings();return {accountId,commissionBps:Number.isSafeInteger(settings.commissionBps)?settings.commissionBps:1000};
+ await assertMembershipReservePolicy(plan.creatorId!,provider,accountId);
+ return {accountId,commissionBps:0,commissionModel:'fixed_per_item' as const,commissionPaise:MARKETPLACE_ITEM_FEE_PAISE,reservePolicyVersion:'72h-120d-v1'};
 }
 async function createCheckout(original:SubscriptionRecord):Promise<{subscription:SubscriptionSummary;checkout:SubscriptionCheckout}>{
  assertCurrentEnvironment(original);
  try{await assertGatewayForNewOrder(original.provider);}catch{throw new SubscriptionError('This gateway is unavailable for new checkout. Existing paid periods and payment updates remain available. Cancel this plan and choose a new plan to use the current gateway.',409);}
  if(original.plan.audience==='customer'&&original.plan.creatorId!=='booyahstudio'){
+  // Resuming an old pending record must not bypass the new reserve/flat-fee
+  // gates that apply when a membership is first reserved. Existing mandates and
+  // paid periods still reconcile/cancel through their original provider below.
+  if(original.plan.billingMode==='automatic')throw new SubscriptionError('New creator membership checkout currently requires manual renewal with a verified fixed fee and reserve. Existing paid periods and mandates remain manageable in Memberships.',409);
+  if(original.split?.commissionModel!=='fixed_per_item'||original.split.commissionPaise!==MARKETPLACE_ITEM_FEE_PAISE||original.split.reservePolicyVersion!=='72h-120d-v1')throw new SubscriptionError('This earlier membership has a different fee or settlement arrangement. Cancel it and choose the current membership offer; previous payments and access remain recorded.',409);
   const creator=await getCreatorById(original.plan.creatorId!),details:any=await getCreatorProviderDetails(original.plan.creatorId!,original.provider),account=details?.account;
   if(creator?.status!=='approved'||!original.split||account?.status!=='verified'||account.reference!==original.split.accountId||account.environment!==original.environment)throw new SubscriptionError('This creator is not currently accepting membership payments.',409);
   if(!creator.publicBusiness||!await creatorHasCurrentAgreement(creator.id))throw new SubscriptionError('This creator is completing the current seller agreement and required business disclosures.',409);
+  const entitlement=await getCreatorEntitlements(creator.userId);if(!entitlement.paid||!entitlement.features.customerMemberships)throw new SubscriptionError('This creator needs an active Studio plan before accepting a new membership payment.',409);
   const productId=account.productId||(/^activated:(acc_prd_[A-Za-z0-9]+)$/.exec(account.providerStatus||'')?.[1]);
   await verifyCreatorGatewayAccount(original.plan.creatorId!,original.provider,original.split.accountId,productId,false);
+  await assertMembershipReservePolicy(original.plan.creatorId!,original.provider,original.split.accountId);
  }
  const claimed=await billingOperation<SubscriptionRecord|null>('claim_checkout',original.id,{leaseUntil:new Date(Date.now()+90_000).toISOString()});
  if(!claimed)throw new SubscriptionError('A checkout request is already in progress. Please check its status before retrying.',409);
@@ -195,7 +202,7 @@ async function createManualCheckout(s:SubscriptionRecord):Promise<{subscription:
  let providerRef:string,checkout:SubscriptionCheckout;
  if(s.provider==='cashfree'){
   let remote:any;
-  try{remote=await cashfreeRequest('orders',{order_id:attempt.id,order_amount:s.plan.amount,order_currency:'INR',customer_details:{customer_id:s.userId,customer_name:s.buyer!.name,customer_email:s.buyer!.email,customer_phone:s.buyer!.phone},order_meta:{return_url:returnUrl,notify_url:`${appOrigin()}/api/marketplace/subscriptions/webhooks/cashfree`},order_tags:{billing_id:s.id,attempt_id:attempt.id},...(s.split?{order_splits:[{vendor_id:s.split.accountId,amount:(Math.round(s.plan.amount*100)-Math.floor(Math.round(s.plan.amount*100)*s.split.commissionBps/10000))/100}]}:{})},cfIdempotent(attempt.id));}
+  try{remote=await cashfreeRequest('orders',{order_id:attempt.id,order_amount:s.plan.amount,order_currency:'INR',customer_details:{customer_id:s.userId,customer_name:s.buyer!.name,customer_email:s.buyer!.email,customer_phone:s.buyer!.phone},order_meta:{return_url:returnUrl,notify_url:`${appOrigin()}/api/marketplace/subscriptions/webhooks/cashfree`},order_tags:{billing_id:s.id,attempt_id:attempt.id},...(s.split?{order_splits:[{vendor_id:s.split.accountId,amount:(Math.round(s.plan.amount*100)-membershipCommissionPaise(Math.round(s.plan.amount*100),s.split))/100}]}:{})},cfIdempotent(attempt.id));}
   catch(error){try{remote=await cashfreeRequest(`orders/${attempt.id}`);}catch{throw error;}}
   if(remote.order_id!==attempt.id||moneyPaise(remote.order_amount)!==Math.round(s.plan.amount*100)||remote.order_currency!=='INR'||!remote.payment_session_id)throw new SubscriptionError('Billing order could not be verified.',502);
   providerRef=attempt.id;checkout={provider:'cashfree',mode:'cashfree',environment:s.environment,paymentSessionId:remote.payment_session_id,returnUrl};
@@ -210,13 +217,13 @@ async function createManualCheckout(s:SubscriptionRecord):Promise<{subscription:
    if(!remote){
     if(attempt.creationAttemptedAt)throw new SubscriptionError('Your payment request is awaiting confirmation. Please check its status before retrying.',409);
     attempt=await billingOperation('attempt_bind',s.id,{id:attempt.id,creationAttemptedAt:nowIso()});
-    remote=await razorpayRequest('orders',{amount:Math.round(s.plan.amount*100),currency:'INR',receipt:attempt.id,notes:{billing_id:s.id,attempt_id:attempt.id},...(s.split?{transfers:[{account:s.split.accountId,amount:(Math.round(s.plan.amount*100)-Math.floor(Math.round(s.plan.amount*100)*s.split.commissionBps/10000)),currency:'INR',notes:{billing_id:s.id},on_hold:0}]}:{})});
+    remote=await razorpayRequest('orders',{amount:Math.round(s.plan.amount*100),currency:'INR',receipt:attempt.id,notes:{billing_id:s.id,attempt_id:attempt.id},...(s.split?{transfers:[{account:s.split.accountId,amount:(Math.round(s.plan.amount*100)-membershipCommissionPaise(Math.round(s.plan.amount*100),s.split)),currency:'INR',notes:{billing_id:s.id},on_hold:true}]}:{})});
    }
   }
   providerRef=validRemoteId(remote.id);if(remote.amount!==Math.round(s.plan.amount*100)||remote.currency!=='INR')throw new SubscriptionError('Billing order could not be verified.',502);
   checkout={provider:'razorpay',mode:'razorpay',environment:s.environment,keyId:process.env.RAZORPAY_KEY_ID,orderId:providerRef,amount:remote.amount,currency:'INR',returnUrl};
  }else{
-  const remote:any=await createEasebuzzHostedPayment({transactionId:attempt.id,amount:s.plan.amount,email:s.buyer!.email,name:s.buyer!.name,phone:s.buyer!.phone,successUrl:`${appOrigin()}/api/marketplace/subscriptions/easebuzz/return`,failureUrl:`${appOrigin()}/api/marketplace/subscriptions/easebuzz/return`,udf1:s.id,udf2:attempt.id,...(s.split?{splitPayments:{[s.split.accountId]:(Math.round(s.plan.amount*100)-Math.floor(Math.round(s.plan.amount*100)*s.split.commissionBps/10000))/100}}:{})});
+  const remote:any=await createEasebuzzHostedPayment({transactionId:attempt.id,amount:s.plan.amount,email:s.buyer!.email,name:s.buyer!.name,phone:s.buyer!.phone,successUrl:`${appOrigin()}/api/marketplace/subscriptions/easebuzz/return`,failureUrl:`${appOrigin()}/api/marketplace/subscriptions/easebuzz/return`,udf1:s.id,udf2:attempt.id,...(s.split?{splitPayments:{[s.split.accountId]:(Math.round(s.plan.amount*100)-membershipCommissionPaise(Math.round(s.plan.amount*100),s.split))/100}}:{})});
   providerRef=attempt.id;checkout={provider:'easebuzz',mode:'hosted',environment:s.environment,url:safeHostedURL(typeof remote==='string'?remote:remote.url||remote.paymentUrl,s.provider),returnUrl};
  }
  await billingOperation('attempt_bind',s.id,{id:attempt.id,providerRef,checkout});
@@ -395,14 +402,21 @@ export function registerSubscriptionRoutes(app:Express,auth:RequestHandler,admin
   const audience=req.query.audience,creatorId=req.query.creatorId;
   if(audience!==undefined&&!['creator','customer'].includes(audience))throw new SubscriptionError('Invalid plan audience.');
   if(creatorId!==undefined)requireId(creatorId);
-  let plans=(await publicPlans()).filter(p=>p.published&&(!audience||p.audience===audience)&&(!creatorId||p.creatorId===creatorId));
-  const approved:SubscriptionPlan[]=[];for(const p of plans){if(p.audience==='creator'||p.creatorId==='booyahstudio'||(await getCreatorById(p.creatorId!))?.status==='approved')approved.push(p);}
+  let plans=(await publicPlans()).filter(p=>p.published&&isPublicCreatorPlan(p)&&(!audience||p.audience===audience)&&(!creatorId||p.creatorId===creatorId));
+  const approved:SubscriptionPlan[]=[];for(const p of plans){
+   if(p.audience==='creator'||p.creatorId==='booyahstudio'){approved.push(p);continue;}
+   const creator=await getCreatorById(p.creatorId!);
+   if(creator?.status==='approved'&&creator.publicBusiness&&await creatorHasCurrentAgreement(creator.id)){
+    const entitlement=await getCreatorEntitlements(creator.userId);
+    if(entitlement.paid&&entitlement.features.customerMemberships)approved.push(p);
+   }
+  }
   res.json({success:true,plans:approved.map(plan=>({...plan,checkoutQuote:subscriptionCheckoutQuote(plan)}))});
  }));
  app.get('/api/marketplace/subscriptions',auth,run(async(req,res)=>{const subscriptions=values((await state()).subscriptions).filter(s=>s.userId===req.userId).map(subscriptionSummary);res.json({success:true,subscriptions});}));
  app.post('/api/marketplace/subscriptions',auth,limiter,run(async(req,res)=>{
   const input=z.object({planId:z.string().regex(idPattern),agreeTerms:z.literal(true),checkoutQuote:z.string().regex(/^[a-f0-9]{64}$/)}).strict().safeParse(req.body);if(!input.success)throw new SubscriptionError('Choose a valid plan and accept its current price and terms before continuing.');
-  const plan=(await state()).plans[input.data.planId];if(!plan?.published||plan.amount<=0)throw new SubscriptionError('This paid plan is unavailable.',409);
+  const plan=(await state()).plans[input.data.planId];if(!plan?.published||plan.amount<=0||!isPublicCreatorPlan(plan))throw new SubscriptionError('This paid plan is unavailable.',409);
   if(input.data.checkoutQuote!==subscriptionCheckoutQuote(plan))throw new SubscriptionError('This offer or its terms have changed. Refresh the plans and review the price before continuing.',409);
   if(plan.audience==='creator'&&!(await getCreatorByUserId(req.userId)))throw new SubscriptionError('Create your creator profile before choosing a paid plan.',409);
   if(plan.audience==='customer'&&!plan.creatorId)throw new SubscriptionError('This membership has no creator.',409);
@@ -434,9 +448,11 @@ export function registerSubscriptionRoutes(app:Express,auth:RequestHandler,admin
  const saveMemberPlan=run(async(req,res)=>{
   const creator=await getCreatorByUserId(req.userId);if(!creator||creator.status!=='approved')throw new SubscriptionError('Your creator profile must be approved before offering memberships.',403);
   if(!creator.publicBusiness||!await creatorHasCurrentAgreement(creator.id))throw new SubscriptionError('Complete the current seller agreement and required business disclosures before offering memberships.',409);
+  const entitlement=await getCreatorEntitlements(req.userId);if(!entitlement.paid||!entitlement.features.customerMemberships)throw new SubscriptionError('Customer membership offers are included in the Studio creator plan.',403);
   const id=req.params.id?requireId(req.params.id):`member_${crypto.randomUUID().replaceAll('-','')}`;
   const existing=(await state()).plans[id];if(req.params.id&&(!existing||existing.creatorId!==creator.id||existing.audience!=='customer'))throw new SubscriptionError('Membership plan not found.',404);
-  const allowed=parsedPlan({...req.body,audience:'customer',creatorId:creator.id});if(allowed.amount<=0)throw new SubscriptionError('Memberships need a positive price.');
+  const allowed=parsedPlan({...req.body,audience:'customer',creatorId:creator.id});if(allowed.amount<=20)throw new SubscriptionError('A membership price must exceed the INR20 item fee.');
+  if(allowed.billingMode==='automatic')throw new SubscriptionError('Creator memberships currently support manual renewal while approved split reserves are verified.',409);
   // Price/content changes return the offer to review; existing paid snapshots are immutable.
   const plan=await billingOperation('save_plan',id,{plan:{...allowed,id,productLimit:undefined,published:false,updatedAt:nowIso()},actorId:req.userId,reason:'Creator submitted membership offer for review.',auditId:`audit_${crypto.randomUUID().replaceAll('-','')}`});res.json({success:true,plan,message:'Membership offer saved for review.'});
  });
@@ -446,9 +462,11 @@ export function registerSubscriptionRoutes(app:Express,auth:RequestHandler,admin
   const {reason,...fields}=req.body||{};if(!z.string().trim().min(10).max(1000).safeParse(reason).success)throw new SubscriptionError('Give a review reason of at least 10 characters.');
   const id=requireId(req.params.id),input=parsedPlan(fields),old=(await state()).plans[id];
   if(input.audience==='customer'&&(!old||!input.creatorId||old.creatorId!==input.creatorId))throw new SubscriptionError('Membership offers must first be created by their creator.');
+  if(input.audience==='customer'&&input.creatorId!=='booyahstudio'&&input.amount<=20)throw new SubscriptionError('A creator membership price must exceed the INR20 item fee.');
+  if(input.audience==='customer'&&input.creatorId!=='booyahstudio'&&input.billingMode==='automatic')throw new SubscriptionError('Creator memberships currently require manual renewal with an approved settlement reserve.',409);
   if(id==='starter'&&(input.amount!==0||input.audience!=='creator'))throw new SubscriptionError('Starter remains a free creator plan.');
   if(id!=='starter'&&input.amount<=0)throw new SubscriptionError('Paid plans need a positive price.');
-  if(input.audience==='creator'&&input.productLimit===undefined&&input.monthlyProductLimit===undefined)throw new SubscriptionError('Creator plans need an active or monthly product limit.');
+  if(input.audience==='creator'&&input.productLimit!==null&&!input.productLimit)throw new SubscriptionError('Creator plans need a listing limit.');
   if(input.audience==='creator'&&input.creatorId)throw new SubscriptionError('Creator plans belong to Booyahstudio.');
   if(input.audience==='customer'&&input.published&&(await getCreatorById(input.creatorId!))?.status!=='approved')throw new SubscriptionError('Only approved creators can publish memberships.');
   if(input.audience==='customer'&&input.published&&(!await creatorHasCurrentAgreement(input.creatorId!)||!(await getCreatorById(input.creatorId!))?.publicBusiness))throw new SubscriptionError('The creator must complete the current seller agreement and required business disclosures.');

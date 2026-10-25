@@ -1,11 +1,25 @@
 import { useProductCatalog } from '../hooks/useProductCatalog';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { getSEOPageData } from '../seo/seoMetadata';
+import { creatorSlugFromPath } from '../config/creatorRoutes';
+import type { PublicCreator } from '../types/marketplace';
 
 export const SEOHead: React.FC = () => {
   const products = useProductCatalog();
   const { currentPath, searchParams } = useApp();
+  const [creator, setCreator] = useState<PublicCreator | null>(null);
+  useEffect(() => {
+    const slug = creatorSlugFromPath(currentPath);
+    setCreator(null);
+    if (!slug) return;
+    const controller = new AbortController();
+    void fetch(`/api/marketplace/creators/${encodeURIComponent(slug)}`, { signal: controller.signal })
+      .then(async response => response.ok ? response.json() : null)
+      .then(data => { if (!controller.signal.aborted && data?.success && data.creator?.slug === slug) setCreator(data.creator); })
+      .catch(() => { /* Retain the safe unavailable metadata until a public profile can be verified. */ });
+    return () => controller.abort();
+  }, [currentPath]);
 
   useEffect(() => {
     const queryObj: Record<string, string> = {};
@@ -13,7 +27,8 @@ export const SEOHead: React.FC = () => {
       if (typeof v === 'string') queryObj[k] = v;
     }
 
-    const pageData = getSEOPageData(currentPath, queryObj, products);
+    const slug = creatorSlugFromPath(currentPath);
+    const pageData = getSEOPageData(currentPath, queryObj, products, creator?.slug === slug ? [creator] : []);
 
     // Update document.title
     document.title = pageData.title;
@@ -77,7 +92,7 @@ export const SEOHead: React.FC = () => {
 
     // JSON-LD
     updateJsonLd(pageData.jsonLd);
-  }, [currentPath, searchParams, products]);
+  }, [currentPath, searchParams, products, creator]);
 
   return null;
 };

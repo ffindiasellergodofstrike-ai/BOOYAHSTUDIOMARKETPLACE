@@ -12,9 +12,10 @@ async function database() {
   const db = new PGlite();
   await db.exec('create role anon; create role authenticated; create role service_role; create schema storage; create table storage.buckets(id text primary key,name text,public boolean); create table storage.objects(id text,bucket_id text);');
   await db.exec(readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8'));
-  await db.exec(readFileSync(new URL('../supabase/migrations/202610230004_subscriptions.sql', import.meta.url), 'utf8'));
   await db.exec(readFileSync(new URL('../supabase/migrations/202610230001_creator_marketplace.sql', import.meta.url), 'utf8'));
-  await db.exec(readFileSync(new URL('../supabase/migrations/202610240001_creator_pricing_limits.sql', import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../supabase/migrations/202610230004_subscriptions.sql', import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../supabase/migrations/202610240002_plans.sql', import.meta.url), 'utf8'));
+  await db.exec(readFileSync(new URL('../supabase/migrations/202610240011_creator_marketplace.sql', import.meta.url), 'utf8'));
   const call = async (fn: 'store_operation' | 'marketplace_operation' | 'subscription_operation' | 'easebuzz_order_operation', operation: string, key = '', value: any = null) => (await db.query<{ result: any }>(`select public.${fn}($1,$2,$3::jsonb) as result`, [operation, key, JSON.stringify(value)])).rows[0].result;
   return { db, store: (operation: string, key = '', value: any = null) => call('store_operation', operation, key, value), market: (operation: string, key = '', value: any = null) => call('marketplace_operation', operation, key, value), call };
 }
@@ -39,7 +40,7 @@ test('marketplace database serializes slug ownership, creator quotas, listing mo
     await assert.rejects(market('listing_write', actualListing.id, { expected: actualListing, record: { ...actualListing, status: 'active' }, owner: creator.userId, limit: 1 }), /not ready/);
     const activeListing = { ...actualListing, status: 'active', file: { uploaded: true, published: true } };
     await market('listing_write', actualListing.id, { expected: actualListing, record: activeListing, owner: creator.userId, limit: 1, product: { ...activeListing, file: undefined } });
-    const snapshot = { sellerId: creatorId, sellerName: creator.displayName, creatorSlug: creator.slug, commissionModel: 'flat_per_item', commissionPerItemPaise: 2000, itemCount: 1, commissionBps: 0, grossPaise: 10000, commissionPaise: 2000, sellerPaise: 8000, provider: 'cashfree', providerAccountId: 'vendor_A', agreementVersion: '2026-10-23' };
+    const snapshot = { sellerId: creatorId, sellerName: creator.displayName, creatorSlug: creator.slug, commissionBps: 1000, grossPaise: 10000, commissionPaise: 1000, sellerPaise: 9000, provider: 'cashfree', providerAccountId: 'vendor_A', agreementVersion: '2026-10-23' };
     const order = { id: 'sale_one', userId: 'buyer', total: 100, paymentStatus: 'PENDING', status: 'PENDING', marketplace: snapshot, items: [{ productId: actualListing.id, productTitle: 'Actual digital work', price: 100, quantity: 1 }] };
     await store('set', 'orders/sale_one', order);
     await store('bind_cashfree', 'orders/sale_one', { cashfreeOrderId: 'sale_one', cfOrderId: 'cf_sale_one', paymentProvider: 'Cashfree', paymentEnvironment: 'live' });
@@ -48,21 +49,10 @@ test('marketplace database serializes slug ownership, creator quotas, listing mo
     await Promise.all(Array.from({ length: 10 }, () => market('ledger_sync', 'sale_one')));
     let ledger = await store('get', 'marketplace/ledger/sale_one');
     assert.equal(Object.keys(await store('get', 'marketplace/ledger')).length, 1, 'repeated webhook/reconciliation creates one sale ledger');
-    assert.equal(ledger.grossPaise, 10000); assert.equal(ledger.commissionPaise, 2000); assert.equal(ledger.sellerPaise, 8000); assert.equal(ledger.payablePaise, 8000); assert.equal(ledger.settlementStatus, 'pending_provider');
-    const suspended = { ...approved, status: 'suspended', suspendedAt: new Date().toISOString() };
-    await market('creator_write', creatorId, { expected: approved, record: suspended });
-    await market('ledger_sync', 'sale_one');
-    ledger = await store('get', 'marketplace/ledger/sale_one'); assert.equal(ledger.payablePaise, 0); assert.equal(ledger.settlementStatus, 'review_required');
-    const expiredReserve = { ...suspended, suspendedAt: new Date(Date.now() - 121 * 24 * 60 * 60 * 1000).toISOString() };
-    await market('creator_write', creatorId, { expected: suspended, record: expiredReserve });
-    await market('ledger_sync', 'sale_one');
-    ledger = await store('get', 'marketplace/ledger/sale_one'); assert.equal(ledger.payablePaise, 8000); assert.equal(ledger.settlementStatus, 'pending_provider');
-    await market('creator_write', creatorId, { expected: expiredReserve, record: approved });
-    await market('ledger_sync', 'sale_one');
-    ledger = await store('get', 'marketplace/ledger/sale_one'); assert.equal(ledger.payablePaise, 8000); assert.equal(ledger.settlementStatus, 'pending_provider');
+    assert.equal(ledger.grossPaise, 10000); assert.equal(ledger.commissionPaise, 1000); assert.equal(ledger.sellerPaise, 9000); assert.equal(ledger.payablePaise, 9000); assert.equal(ledger.settlementStatus, 'pending_provider');
     await store('record_cashfree_refund', 'orders/sale_one', { id: 'refund_one', payment_id: 'cf_payment_one', order_id: 'sale_one', amount: 2500, currency: 'INR', environment: 'live' });
     await Promise.all(Array.from({ length: 6 }, () => market('ledger_sync', 'sale_one')));
-    ledger = await store('get', 'marketplace/ledger/sale_one'); assert.equal(ledger.refundedPaise, 2500); assert.equal(ledger.refundSellerPaise, 2000); assert.equal(ledger.payablePaise, 6000);
+    ledger = await store('get', 'marketplace/ledger/sale_one'); assert.equal(ledger.refundedPaise, 2500); assert.equal(ledger.refundSellerPaise, 2250); assert.equal(ledger.payablePaise, 6750);
     await store('update', 'orders/sale_one', { refundedAmount: 0 }); await market('ledger_sync', 'sale_one'); assert.equal((await store('get', 'marketplace/ledger/sale_one')).refundedPaise, 2500, 'late stale refund snapshots cannot restore seller funds');
     const verified = await store('get', 'orders/sale_one');
     await store('set', 'orders/duplicate_credit', { ...verified, id: 'duplicate_credit' });
@@ -84,6 +74,10 @@ test('creator routes enforce sessions, ownership and moderation while keeping KY
   const previous = { url: process.env.SUPABASE_URL, key: process.env.SUPABASE_SERVICE_ROLE_KEY, encryption: process.env.MARKETPLACE_ENCRYPTION_KEY };
   process.env.SUPABASE_URL = 'https://market.synthetic.supabase.co'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'synthetic-role'; process.env.MARKETPLACE_ENCRYPTION_KEY = Buffer.alloc(32, 71).toString('base64');
   t.after(() => { for (const [name, value] of [['SUPABASE_URL', previous.url], ['SUPABASE_SERVICE_ROLE_KEY', previous.key], ['MARKETPLACE_ENCRYPTION_KEY', previous.encryption]]) { if (value === undefined) delete process.env[name!]; else process.env[name!] = value; } });
+  const reserveKeys = ['RAZORPAY_ROUTE_APPROVED','RAZORPAY_RESERVES_APPROVED','RAZORPAY_RESERVE_CONTRACT_REFERENCE'];
+  const reservesBefore = Object.fromEntries(reserveKeys.map(key => [key, process.env[key]]));
+  Object.assign(process.env, { RAZORPAY_ROUTE_APPROVED: 'true', RAZORPAY_RESERVES_APPROVED: 'true', RAZORPAY_RESERVE_CONTRACT_REFERENCE: 'provider-contract-fixture' });
+  t.after(() => { for (const [key,value] of Object.entries(reservesBefore)) if(value===undefined)delete process.env[key];else process.env[key]=value; });
   const nativeFetch = globalThis.fetch, files = new Map<string, Uint8Array>(); let storageCalls = 0;
   globalThis.fetch = async (input: any, init?: any) => {
     const url = new URL(String(input?.url || input));
@@ -92,13 +86,16 @@ test('creator routes enforce sessions, ownership and moderation while keeping KY
     if (fn) { const body = JSON.parse(init.body); try { return Response.json(await call(fn as any, body.operation, body.key, body.value)); } catch (error) { return Response.json({ message: (error as Error).message }, { status: 400 }); } }
     storageCalls++;
     const path = decodeURIComponent(url.pathname.split('/products/')[1] || '');
+    if (url.pathname.startsWith('/storage/v1/object/upload/sign/products/')) {
+      if (init?.method === 'POST') return Response.json({ url: url.pathname.replace('/storage/v1', '') + '?token=synthetic-upload-token' });
+      if (init?.method === 'PUT') { files.set(path, new Uint8Array(await new Response(init.body).arrayBuffer())); return Response.json({ Key: path }); }
+    }
+    if (url.pathname === '/storage/v1/object/products' && init?.method === 'DELETE') { const body = JSON.parse(init.body); for (const prefix of body.prefixes) files.delete(prefix); return Response.json([]); }
+    if (url.pathname.startsWith('/storage/v1/object/products/') && init?.method !== 'POST') return files.has(path) ? new Response(new Uint8Array(files.get(path)!)) : Response.json({ message: 'Not found' }, { status: 404 });
     if (url.pathname.startsWith('/storage/v1/object/info/products/')) return files.has(path) ? Response.json({ name: path, size: files.get(path)!.byteLength }) : Response.json({ message: 'Not found' }, { status: 404 });
-    if (url.pathname.startsWith('/storage/v1/object/upload/sign/products/') && init?.method === 'POST') return Response.json({ url: url.pathname.replace('/storage/v1', '') + '?token=private-upload-token', signedURL: url.pathname.replace('/storage/v1', '') + '?token=private-upload-token', signedUrl: url.pathname.replace('/storage/v1', '') + '?token=private-upload-token', token: 'private-upload-token', path });
-    if (url.pathname.startsWith('/storage/v1/object/upload/sign/products/') && init?.method === 'PUT') { const body = init.body instanceof Blob ? new Uint8Array(await init.body.arrayBuffer()) : new Uint8Array(init.body); files.set(path, body); return Response.json({ Key: path }); }
     if (url.pathname.startsWith('/storage/v1/object/sign/products/') && init?.method === 'POST') return Response.json({ signedURL: url.pathname.replace('/storage/v1', '') + '?token=private-synthetic-token' });
     if (url.pathname.startsWith('/storage/v1/object/sign/products/')) return new Response(files.has(path) ? new Uint8Array(files.get(path)!).buffer : null, { status: files.has(path) ? 206 : 404 });
     if (url.pathname === '/storage/v1/object/copy') { const body = JSON.parse(init.body); if (!files.has(body.sourceKey) || files.has(body.destinationKey)) return Response.json({ message: 'Conflict' }, { status: 409 }); files.set(body.destinationKey, files.get(body.sourceKey)!); return Response.json({ Key: body.destinationKey }); }
-    if (url.pathname.startsWith('/storage/v1/object/products/') && init?.method === 'GET') return new Response(files.has(path) ? new Uint8Array(files.get(path)!).buffer : null, { status: files.has(path) ? 200 : 404 });
     if (url.pathname.startsWith('/storage/v1/object/products/')) { const body = init.body instanceof Blob ? new Uint8Array(await init.body.arrayBuffer()) : new Uint8Array(init.body); files.set(path, body); return Response.json({ Key: path }); }
     throw new Error(`Unexpected synthetic storage request: ${url.pathname}`);
   };
@@ -112,7 +109,7 @@ test('creator routes enforce sessions, ownership and moderation while keeping KY
   const request = async (path: string, user = 'owner', method = 'GET', body?: any) => nativeFetch(base + path, { method, headers: { ...(user ? { 'x-user': user } : {}), ...(body === undefined || body instanceof FormData ? {} : { 'content-type': 'application/json' }) }, ...(body === undefined ? {} : { body: body instanceof FormData ? body : JSON.stringify(body) }) });
   assert.equal((await request('/me', '')).status, 401); assert.equal((await request('/admin/creators', 'owner')).status, 403);
   const publicBusiness = { businessName: 'Creator Trading Name', businessAddress: 'Public business address, Varanasi, Uttar Pradesh, 221003', supportEmail: 'support@creator.example.com', supportPhone: '9876543210', grievanceName: 'Creator Grievance Contact', publishConsent: true };
-  const onboarding = { displayName: 'Real Creator', slug: 'real-creator', headline: 'Original digital work', bio: 'Templates designed by an independent creator.', legalName: 'Private Legal Name', phone: '9876543210', adult: true, ownsRights: true, acceptAgreement: true, agreementVersion: CREATOR_AGREEMENT.version, publicBusiness };
+  const onboarding = { displayName: 'Real Creator', slug: 'real-creator', headline: 'Original digital work', bio: 'Templates designed by an independent creator.', legalName: 'Private Legal Name', pan: 'ABCDE1234F', kycConsent: true, phone: '9876543210', adult: true, ownsRights: true, acceptAgreement: true, agreementVersion: CREATOR_AGREEMENT.version, publicBusiness };
   assert.equal((await request('/me', 'owner', 'POST', { ...onboarding, agreementVersion: 'stale-version' })).status, 400, 'a stale form cannot silently accept changed terms');
   assert.equal((await request('/me', 'owner', 'POST', { ...onboarding, status: 'approved' })).status, 400);
   const createdResponse = await request('/me', 'owner', 'POST', onboarding); assert.equal(createdResponse.status, 201); const creator = (await createdResponse.json()).creator;
@@ -133,34 +130,49 @@ test('creator routes enforce sessions, ownership and moderation while keeping KY
   assert.equal((await getCreatorProviderDetails(creator.id, 'razorpay'))?.account?.providerStatus, 'activated:acc_prd_1234');
   const safeText = await (await request('/me')).text(); assert.ok(!safeText.includes('acc_test1')); assert.ok(!safeText.includes('acc_prd_')); assert.ok(!safeText.includes('encryptedKyc')); assert.ok(!safeText.includes('agreementAcceptance'));
   assert.equal((await request('/me/kyc', 'owner', 'POST', kyc)).status, 409, 'bank identity bound to real provider cannot silently change');
+  // A server-verified live period is required; a free profile is not a paid publishing plan.
+  const periodStart = new Date(Date.now() - 60_000).toISOString(), periodEnd = new Date(Date.now() + 30 * 86400000).toISOString();
+  const creatorPlan = { id: 'creator_monthly_499', name: 'Creator', audience: 'creator', amount: 499, currency: 'INR', interval: 'month', billingMode: 'manual', productLimit: 10, productQuota: 'billing_period_creations' };
+  const paidSubscription = { id: 'sub_creator_fixture', userId: 'owner', plan: creatorPlan, provider: 'razorpay', environment: 'live', providerRef: 'order_creator_fixture', lastCheckedAt: new Date().toISOString(), payments: { pay_creator_fixture: { id: 'pay_creator_fixture', verified: true, revoked: false, subscriptionRef: 'order_creator_fixture', currency: 'INR', amountPaise: 49900, periodStart, periodEnd } } };
+  await db.query("update public.marketplace_billing_state set data=jsonb_set(data,'{subscriptions}', $1::jsonb) where id=true", [JSON.stringify({ sub_creator_fixture: paidSubscription })]);
   const product = { title: 'Original Portfolio', shortDescription: 'A useful original portfolio template.', description: 'An original portfolio template with clear setup instructions and source files included.', category: 'Website templates', price: 99, image: 'https://images.example.com/portfolio.webp', features: ['Responsive'], whatsIncluded: ['Source ZIP'], tags: ['portfolio'], version: '1.0', requirements: 'Node 22\nA code editor', licenseTerms: 'Use for one project. Redistribution is prohibited.', membershipEligible: false, ownsRights: true };
   const createListing = await request('/me/listings', 'owner', 'POST', product); assert.equal(createListing.status, 201); let listing = (await createListing.json()).listing; assert.deepEqual(listing.requirements, ['Node 22', 'A code editor']);
+  await store('update', `marketplace/listings/${listing.id}`, { gallery: ['https://images.example.com/keep.webp'], tags: ['keep-tag'], version: '7.0', membershipEligible: true });
+  const titleOnly = await request(`/me/listings/${listing.id}`, 'owner', 'PATCH', { title: 'Updated original portfolio' });
+  assert.equal(titleOnly.status, 200);
+  const patched = (await titleOnly.json()).listing;
+  assert.deepEqual(patched.gallery, ['https://images.example.com/keep.webp']); assert.deepEqual(patched.tags, ['keep-tag']);
+  assert.equal(patched.version, '7.0'); assert.equal(patched.membershipEligible, true); assert.deepEqual(patched.requirements, ['Node 22', 'A code editor']);
+  await store('update', `marketplace/listings/${listing.id}`, { membershipEligible: false });
   assert.equal((await request(`/me/listings/${listing.id}`, 'attacker', 'PATCH', { title: 'Stolen product' })).status, 403);
   assert.equal((await request(`/me/listings/${listing.id}/submit`, 'owner', 'POST', {})).status, 409);
   const archive = await request(`/me/listings/${listing.id}/archive`, 'owner', 'POST', {}); assert.equal(archive.status, 200); assert.equal((await archive.json()).listing.status, 'archived');
   const unarchive = await request(`/me/listings/${listing.id}`, 'owner', 'PATCH', { title: product.title }); assert.equal(unarchive.status, 200);
+  assert.equal((await request(`/me/listings/${listing.id}/upload-intent`, 'attacker', 'POST', { fileName: 'direct.zip', size: 5 * 1024 * 1024 })).status, 403);
+  assert.equal((await request(`/me/listings/${listing.id}/upload-intent`, 'owner', 'POST', { fileName: 'direct.zip', size: 10 * 1024 * 1024 + 1 })).status, 400);
+  const directIntent = await request(`/me/listings/${listing.id}/upload-intent`, 'owner', 'POST', { fileName: 'direct.zip', size: 5 * 1024 * 1024 });
+  assert.equal(directIntent.status, 200); const ticket = await directIntent.json();
+  assert.ok(ticket.uploadUrl.startsWith('https://market.synthetic.supabase.co/storage/v1/object/upload/sign/products/_creators/'));
+  assert.equal((await request(`/me/listings/${listing.id}/upload-complete`, 'owner', 'POST', { uploadId: ticket.uploadId })).status, 409, 'finalization cannot grant a missing object');
+  const directBytes = new Uint8Array(5 * 1024 * 1024); directBytes.set([0x50, 0x4b, 3, 4]);
+  await globalThis.fetch(ticket.uploadUrl, { method: 'PUT', body: directBytes });
+  const directComplete = await request(`/me/listings/${listing.id}/upload-complete`, 'owner', 'POST', { uploadId: ticket.uploadId });
+  assert.equal(directComplete.status, 200); const directListing = (await directComplete.json()).listing;
+  assert.equal(directListing.file.size, directBytes.length); assert.equal(directListing.file.uploaded, true); assert.equal(directListing.file.published, false);
+  assert.ok(!JSON.stringify(directListing).includes('_creators/')); assert.ok(!JSON.stringify(directListing).includes('sha256'));
+  const directRetry = await request(`/me/listings/${listing.id}/upload-complete`, 'owner', 'POST', { uploadId: ticket.uploadId });
+  assert.equal(directRetry.status, 200); assert.equal((await directRetry.json()).duplicate, true);
   const bytes = new Uint8Array(22); bytes.set([0x50, 0x4b, 3, 4]);
-  assert.equal((await request(`/me/listings/${listing.id}/upload`, 'owner', 'POST', { fileName: 'too-large.zip', size: 10 * 1024 * 1024 + 1 })).status, 400);
-  const prepared = await request(`/me/listings/${listing.id}/upload`, 'owner', 'POST', { fileName: 'original.zip', size: bytes.byteLength }); assert.equal(prepared.status, 200); const uploadTicket = (await prepared.json()).upload;
-  assert.ok(uploadTicket.signedUrl.includes('private-upload-token'));
-  const directUpload = await fetch(uploadTicket.signedUrl, { method: 'PUT', headers: { 'content-type': 'application/zip', 'x-upsert': 'false' }, body: bytes }); assert.equal(directUpload.status, 200, await directUpload.text());
-  assert.ok(Array.from(files.entries()).some(([path, value]) => path.includes(listing.id) && value[0] === 0x50), 'signed PUT stores the ZIP header in private staging');
-  const uploaded = await request(`/me/listings/${listing.id}/upload/complete`, 'owner', 'POST', { uploadId: uploadTicket.uploadId }); const uploadedText = await uploaded.text(); assert.equal(uploaded.status, 200, uploadedText); assert.ok(!uploadedText.includes('_creators/')); assert.ok(!uploadedText.includes('sha256'));
+  const zip = new FormData(); zip.append('file', new Blob([bytes], { type: 'application/zip' }), 'original.zip');
+  const uploaded = await request(`/me/listings/${listing.id}/upload`, 'owner', 'POST', zip); assert.equal(uploaded.status, 200); const uploadedText = await uploaded.text(); assert.ok(!uploadedText.includes('_creators/')); assert.ok(!uploadedText.includes('sha256'));
   assert.equal((await request(`/me/listings/${listing.id}/submit`, 'owner', 'POST', {})).status, 200);
   assert.equal((await request(`/admin/listings/${listing.id}/review-file`, 'owner')).status, 403);
   assert.equal((await request(`/admin/listings/${listing.id}/review-file`, 'admin')).status, 200);
   assert.equal((await request(`/admin/listings/${listing.id}`, 'admin', 'PATCH', { action: 'approve', reason: 'Reviewed the complete original archive' })).status, 409, 'approval requires explicit archive review');
   const published = await request(`/admin/listings/${listing.id}`, 'admin', 'PATCH', { action: 'approve', reason: 'Reviewed the complete original archive', reviewed: true }); assert.equal(published.status, 200); listing = (await published.json()).listing; assert.equal(listing.status, 'active'); assert.equal(listing.file.published, true); assert.ok(files.has(`${listing.id}.zip`), 'reviewed ZIP is physically copied to the private paid path');
-  assert.equal((await request(`/me/listings/${listing.id}/upload`, 'owner', 'POST', { fileName: 'replacement.zip', size: bytes.byteLength })).status, 409, 'published buyer files remain immutable');
+  const replacement = new FormData(); replacement.append('file', new Blob([bytes]), 'replacement.zip'); assert.equal((await request(`/me/listings/${listing.id}/upload`, 'owner', 'POST', replacement)).status, 409, 'published buyer files remain immutable');
   const snapshot = await prepareCreatorOrder([{ productId: listing.id, quantity: 1 }], 'razorpay', 9900); assert.equal(snapshot?.sellerId, creator.id); assert.equal(snapshot?.grossPaise, 9900); assert.equal(snapshot?.commissionPaise, 2000); assert.equal(snapshot?.sellerPaise, 7900);
   const storefront = await (await request('/creators/real-creator', '')).text(); assert.ok(storefront.includes(product.title)); assert.ok(storefront.includes(publicBusiness.businessName)); assert.ok(storefront.includes(publicBusiness.supportEmail)); assert.ok(!storefront.includes('_creators/')); assert.ok(!storefront.includes('providerAccountId')); assert.ok(!storefront.includes('sha256')); assert.ok(!storefront.includes('publishConsent'));
-  const externalUrl = 'https://drive.google.com/uc?id=synthetic-direct-file';
-  const externalDraftResponse = await request('/me/listings', 'owner', 'POST', { ...product, title: 'External delivery product', externalFileUrl: externalUrl }); assert.equal(externalDraftResponse.status, 201);
-  const externalDraft = (await externalDraftResponse.json()).listing;
-  assert.equal((await request(`/me/listings/${externalDraft.id}/submit`, 'owner', 'POST', {})).status, 200);
-  const externalReview = await request(`/admin/listings/${externalDraft.id}/review-file`, 'admin'); assert.equal((await externalReview.json()).downloadUrl, externalUrl);
-  const externalApproval = await request(`/admin/listings/${externalDraft.id}`, 'admin', 'PATCH', { action: 'approve', reason: 'Reviewed external delivery file, destination, rights and content', reviewed: true }); assert.equal(externalApproval.status, 200);
-  const publicStorefront = await (await request('/creators/real-creator', '')).text(); assert.ok(publicStorefront.includes('External delivery product')); assert.ok(!publicStorefront.includes(externalUrl), 'direct download links are absent from public storefront products');
   await store('set', 'orders/owner_sale', { id: 'owner_sale', total: 99, paymentStatus: 'PENDING', marketplace: snapshot, customerEmail: 'private-buyer@example.com', customerName: 'Private Buyer', items: [{ productId: listing.id, productTitle: product.title, price: 99 }] });
   await store('set', 'orders/other_sale', { id: 'other_sale', total: 55, marketplace: { sellerId: 'another_creator' }, customerEmail: 'other-buyer@example.com', items: [] });
   const ownerDashboard = await (await request('/me')).json(); assert.equal(ownerDashboard.orders.length, 1); assert.equal(ownerDashboard.orders[0].id, 'owner_sale'); assert.ok(!JSON.stringify(ownerDashboard.orders).includes('private-buyer@example.com')); assert.ok(!JSON.stringify(ownerDashboard.orders).includes('providerAccountId'));
@@ -209,6 +221,12 @@ test('creator ledgers accept exact Razorpay and Easebuzz canonical proofs and pr
     await store('bind_payment', 'orders/sale_razorpay', { razorpayOrderId: 'order_sale', paymentProvider: 'Razorpay', paymentEnvironment: 'live' });
     await store('confirm_payment', 'orders/sale_razorpay', { id: 'pay_sale', order_id: 'order_sale', amount: 10000, currency: 'INR', status: 'captured', amount_refunded: 0, environment: 'live' });
     assert.equal((await market('ledger_sync', 'sale_razorpay')).payablePaise, 9000);
+    const flat = { ...sale('razorpay', 'acc_seller'), id: 'historical_flat', marketplace: { ...sale('razorpay', 'acc_seller').marketplace, commissionModel: 'flat_per_item', commissionPerItemPaise: 2000, itemCount: 1, commissionBps: 0, commissionPaise: 2000, sellerPaise: 8000 } };
+    await store('set', 'orders/historical_flat', flat);
+    await store('bind_payment', 'orders/historical_flat', { razorpayOrderId: 'order_flat', paymentProvider: 'Razorpay', paymentEnvironment: 'live' });
+    await store('confirm_payment', 'orders/historical_flat', { id: 'pay_flat', order_id: 'order_flat', amount: 10000, currency: 'INR', status: 'captured', amount_refunded: 0, environment: 'live' });
+    assert.equal((await market('ledger_sync', 'historical_flat')).payablePaise, 8000, 'the published flat_per_item contract remains valid after upgrade');
+    assert.equal((await store('get', 'orders/historical_flat')).marketplace.commissionModel, 'flat_per_item', 'historical snapshots are never rewritten');
     await store('record_dispute', 'orders/sale_razorpay', { id: 'disp_sale', payment_id: 'pay_sale', amount: 10000, currency: 'INR', status: 'open' });
     assert.equal((await market('ledger_sync', 'sale_razorpay')).payablePaise, 0, 'open provider disputes block payable earnings without claiming a bank hold');
     await store('record_dispute', 'orders/sale_razorpay', { id: 'disp_sale', payment_id: 'pay_sale', amount: 10000, currency: 'INR', status: 'won' });

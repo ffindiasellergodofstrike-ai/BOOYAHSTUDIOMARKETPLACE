@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getSEOPageData, injectSEOMetadata, POLICY_REDIRECTS, policyData } from '../src/seo/seoMetadata';
 import { injectPublicPageContent } from '../src/seo/publicPages';
+import { creatorSlugFromPath, getCreatorPath } from '../src/config/creatorRoutes';
+import { getPublicCreatorProfiles } from './creatorPublicRouting';
 
 let cachedIndexHtml: string | null = null;
 
@@ -58,11 +60,14 @@ export async function seoMiddleware(req: Request, res: Response, next: NextFunct
     return next();
   }
 
-  const catalogPage = cleanPath === '/' || cleanPath === '/products' || cleanPath === '/creators' || cleanPath.startsWith('/creators/') || cleanPath.startsWith('/store/') || cleanPath.startsWith('/product/') || cleanPath.startsWith('/category/');
+  const creatorSlug = creatorSlugFromPath(cleanPath);
+  const profiles = creatorSlug || cleanPath === '/creators' ? await getPublicCreatorProfiles() : [];
+  if (creatorSlug && cleanPath !== getCreatorPath(creatorSlug) && profiles.some(profile => profile.slug === creatorSlug)) return res.redirect(301, getCreatorPath(creatorSlug));
+  const catalogPage = cleanPath === '/' || cleanPath === '/products' || cleanPath === '/creators' || Boolean(creatorSlug) || cleanPath.startsWith('/product/') || cleanPath.startsWith('/category/');
   const products = await filterMarketplaceCatalog(catalogPage && process.env.SUPABASE_URL ? mergeProductCatalog(PRODUCTS, await Store.getAllProducts()) : PRODUCTS);
-  const pageSEOData = getSEOPageData(cleanPath, queryObj, products);
+  const pageSEOData = getSEOPageData(cleanPath, queryObj, products, profiles);
   const shell = getIndexHtmlShell();
-  const renderedHtml = injectPublicPageContent(injectSEOMetadata(shell, pageSEOData), cleanPath, products);
+  const renderedHtml = injectPublicPageContent(injectSEOMetadata(shell, pageSEOData), cleanPath, products, profiles);
 
   const status = pageSEOData.statusCode || 200;
   if (pageSEOData.noindex) res.setHeader('X-Robots-Tag', 'noindex, nofollow');

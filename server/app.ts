@@ -39,6 +39,9 @@ import { registerCreatorGatewayRoutes } from './gatewaySplits';
 import { registerSubscriptionRoutes, reconcileSubscriptions } from './subscriptions';
 import { customerOrder } from './customerOrder';
 import { registerDisputeAutomationRoutes, reconcileDisputes } from './disputeAutomation';
+import { getPublicCreatorProfiles } from './creatorPublicRouting';
+import { registerSettlementRoutes, reconcileMarketplaceSettlements } from './marketplaceSettlements';
+import { cleanupCreatorUploads } from './creatorUploads';
 const getConfiguredAppUrl = appOrigin;
 
 const getPaymentRequestIp = (req: Request): string => {
@@ -155,9 +158,8 @@ app.get('/robots.txt', (_req: Request, res: Response) => {
   res.type('text/plain').send(renderRobots());
 });
 app.get('/sitemap.xml', async (_req: Request, res: Response) => {
-  const [products, creatorRecords] = await Promise.all([getProductCatalog(), process.env.SUPABASE_URL ? Store.get<Record<string, any>>('marketplace/creators').catch(() => null) : Promise.resolve(null)]);
-  const creatorSlugs = Object.values(creatorRecords || {}).filter(creator => creator.status === 'approved' && /^[a-z0-9][a-z0-9-]{2,49}$/.test(creator.slug)).map(creator => creator.slug);
-  res.type('application/xml').send(renderSitemap(products, creatorSlugs));
+  const [products, profiles] = await Promise.all([getProductCatalog(), getPublicCreatorProfiles()]);
+  res.type('application/xml').send(renderSitemap(products, profiles));
 });
 
 app.use(seoMiddleware);
@@ -634,6 +636,7 @@ registerSubscriptionRoutes(app, requireAuth, requireAdmin, authRateLimiter);
 registerEasebuzzRoutes(app, requireAuth, authRateLimiter);
 registerCreatorGatewayRoutes(app, requireAuth, requireAdmin, authRateLimiter);
 registerDisputeAutomationRoutes(app, requireAuth, requireAdmin, authRateLimiter);
+registerSettlementRoutes(app, requireAuth, requireAdmin, authRateLimiter);
 registerCashfreeRoutes(app, requireAuth, authRateLimiter);
 registerCashfreeDisputeRoutes(app, requireAuth, requireAdmin, authRateLimiter);
 registerEmailWebhookRoutes(app);
@@ -676,14 +679,16 @@ app.all(['/api/jobs/reconcile', '/api/payments/easebuzz/reconcile-cron'], async(
     return saved;
   }));
   // Independent bounded work runs together within the serverless execution window.
-  const [paymentsResult, emailsResult, subscriptionsResult, disputesResult] = await Promise.allSettled([paymentsTask, retryOrderEmails(5), reconcileSubscriptions(3), reconcileDisputes(3)]);
+  const [paymentsResult, emailsResult, subscriptionsResult, disputesResult, settlementsResult, uploadCleanupResult] = await Promise.allSettled([paymentsTask, retryOrderEmails(5), reconcileSubscriptions(3), reconcileDisputes(3), reconcileMarketplaceSettlements(3), cleanupCreatorUploads(10)]);
   const results = paymentsResult.status === 'fulfilled' ? paymentsResult.value : [];
-  const failedModules = [paymentsResult, emailsResult, subscriptionsResult, disputesResult].filter(result => result.status === 'rejected').length;
+  const failedModules = [paymentsResult, emailsResult, subscriptionsResult, disputesResult, settlementsResult, uploadCleanupResult].filter(result => result.status === 'rejected').length;
   const reviewRequired = failedModules + results.filter(result=>result.status==='rejected').length;
   const outcome = {completedAt:new Date().toISOString(),status:reviewRequired ? 'completed_with_review' : 'completed',reconciled:results.filter(result=>result.status==='fulfilled').length,reviewRequired,
     emails:emailsResult.status === 'fulfilled' ? emailsResult.value : {status:'review_required'},
     subscriptions:subscriptionsResult.status === 'fulfilled' ? subscriptionsResult.value : {status:'review_required'},
-    disputes:disputesResult.status === 'fulfilled' ? disputesResult.value : {status:'review_required'}};
+    disputes:disputesResult.status === 'fulfilled' ? disputesResult.value : {status:'review_required'},
+    settlements:settlementsResult.status === 'fulfilled' ? settlementsResult.value : {status:'review_required'},
+    uploadCleanup:uploadCleanupResult.status === 'fulfilled' ? uploadCleanupResult.value : {status:'review_required'}};
   await Store.set('operations/reconciliationLastRun',outcome);
   res.json({success:true,...outcome});
 });

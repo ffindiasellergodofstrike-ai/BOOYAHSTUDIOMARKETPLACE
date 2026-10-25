@@ -13,7 +13,9 @@
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test server/*.test.ts src/services/*.test.ts",
-    "check:vercel": "node scripts/check-vercel-runtime.mjs"
+    "check:vercel": "node scripts/check-vercel-runtime.mjs",
+    "setup:check": "tsx scripts/setup-check.ts",
+    "setup:sql": "tsx scripts/prepare-marketplace-sql.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
@@ -38,6 +40,7 @@
     "react-dom": "^19.0.1",
     "recharts": "^3.10.1",
     "resend": "^6.28.1",
+    "serverless-http": "^3.2.0",
     "vite": "^8.3.0",
     "zod": "^4.6.5"
   },

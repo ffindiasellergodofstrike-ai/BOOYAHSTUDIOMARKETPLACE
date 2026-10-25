@@ -1,41 +1,46 @@
 import { PRODUCTS, CATEGORIES } from '../data/products';
 import { BUSINESS } from '../config/business';
+import { creatorSlugFromPath, getCreatorPath } from '../config/creatorRoutes';
+import type { PublicCreator } from '../types/marketplace';
 import { policyData, POLICY_REDIRECTS, SUPPORTED_POLICY_SLUGS } from '../data/policyData';
 import { activeSEOProducts, BASE_URL, cleanPagePath, escapeHtml, getSEOPageData, PRIVATE_PAGE_PATHS } from './seoMetadata';
 
-export function publicCanonicalPaths(products: typeof PRODUCTS = PRODUCTS, creatorSlugs: string[] = []): string[] {
-  const paths = ['/', '/products', '/creators', '/store/booyahstudio', '/pricing', '/about', '/contact', '/faq', ...creatorSlugs.map(slug => `/store/${encodeURIComponent(slug)}`), ...SUPPORTED_POLICY_SLUGS.map(slug => `/policies/${slug}`), ...CATEGORIES.map(category => `/category/${category.slug}`), ...activeSEOProducts(products).map(product => `/product/${encodeURIComponent(product.slug)}`)];
-  for (const product of activeSEOProducts(products)) { paths.push(`/category/${encodeURIComponent(product.category)}`); if (product.creatorSlug) paths.push(`/store/${encodeURIComponent(product.creatorSlug)}`); }
-  return [...new Set(paths)].filter(route => !getSEOPageData(route, {}, products).noindex);
+export function publicCanonicalPaths(products: typeof PRODUCTS = PRODUCTS, creators: PublicCreator[] = []): string[] {
+  const paths = ['/', '/products', '/creators', '/store/booyahstudio', '/pricing', '/about', '/contact', '/faq', ...SUPPORTED_POLICY_SLUGS.map(slug => `/policies/${slug}`), ...CATEGORIES.map(category => `/category/${category.slug}`), ...activeSEOProducts(products).map(product => `/product/${encodeURIComponent(product.slug)}`)];
+  for (const product of activeSEOProducts(products)) { paths.push(`/category/${encodeURIComponent(product.category)}`); if (product.creatorSlug) paths.push(getCreatorPath(product.creatorSlug)); }
+  for (const creator of creators) paths.push(getCreatorPath(creator.slug));
+  return [...new Set(paths)].filter(route => !getSEOPageData(route, {}, products, creators).noindex);
 }
-export function renderSitemap(products: typeof PRODUCTS = PRODUCTS, creatorSlugs: string[] = []): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${publicCanonicalPaths(products, creatorSlugs).map(route => `  <url><loc>${escapeHtml(`${BASE_URL}${route}`)}</loc></url>`).join('\n')}\n</urlset>`;
+export function renderSitemap(products: typeof PRODUCTS = PRODUCTS, creators: PublicCreator[] = []): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${publicCanonicalPaths(products, creators).map(route => `  <url><loc>${escapeHtml(`${BASE_URL}${route}`)}</loc></url>`).join('\n')}\n</urlset>`;
 }
 export function renderRobots(): string {
-  return `User-agent: *\n${[...PRIVATE_PAGE_PATHS, '/api/', '/.data/', '/demos/'].map(route => `Disallow: ${route}`).join('\n')}\n\nSitemap: ${BASE_URL}/sitemap.xml\n`;
+  const privateRules = PRIVATE_PAGE_PATHS.flatMap(route => [`Disallow: ${route}$`, `Disallow: ${route}/`]);
+  return `User-agent: *\n${[...privateRules, ...['/api/', '/.data/', '/demos/'].map(route => `Disallow: ${route}`)].join('\n')}\n\nSitemap: ${BASE_URL}/sitemap.xml\n`;
 }
 const list = (items: string[]) => `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
 const productLinks = (products: typeof PRODUCTS) => `<ul>${products.map(product => `<li><a href="/product/${encodeURIComponent(product.slug)}">${escapeHtml(product.title)}</a> — ₹${escapeHtml(product.price.toLocaleString('en-IN'))}<p>${escapeHtml(product.shortDescription)}</p></li>`).join('')}</ul>`;
 const merchant = () => `<footer><p>${escapeHtml(BUSINESS.owner)} — Owner of ${escapeHtml(BUSINESS.name)}</p><address>${escapeHtml(BUSINESS.address)}</address><p>Customer support and grievances: <a href="mailto:${escapeHtml(BUSINESS.email)}">${escapeHtml(BUSINESS.email)}</a><br>WhatsApp: <a href="${escapeHtml(BUSINESS.phoneHref)}">${escapeHtml(BUSINESS.phone)}</a><br>Grievance contact: ${escapeHtml(BUSINESS.owner)}, at the same email and address.</p><nav aria-label="Policies">${SUPPORTED_POLICY_SLUGS.map(slug => `<a href="/policies/${slug}">${escapeHtml(policyData[slug].title)}</a>`).join(' · ')}</nav></footer>`;
 
 /** Public, crawlable HTML only; never serializes an order, account or private asset URL. React replaces it on mount. */
-export function renderPublicPageContent(pathname: string, products: typeof PRODUCTS = PRODUCTS): string {
+export function renderPublicPageContent(pathname: string, products: typeof PRODUCTS = PRODUCTS, profiles: PublicCreator[] = []): string {
   const path = cleanPagePath(pathname);
   if (PRIVATE_PAGE_PATHS.some(route => path === route || path.startsWith(`${route}/`))) return '';
   const activeProducts = activeSEOProducts(products);
-  const page = getSEOPageData(path, {}, activeProducts);
+  const page = getSEOPageData(path, {}, activeProducts, profiles);
   let body: string;
   if (page.statusCode === 404) body = '<h1>Page not found</h1><p>This page is unavailable. Explore the collection to find your next starting point.</p><a href="/products">Explore templates</a>';
   else if (path === '/creators') {
     const creators = new Map<string, string>([['booyahstudio', BUSINESS.name]]);
     for (const product of activeProducts) if (product.creatorSlug && product.sellerName) creators.set(product.creatorSlug, product.sellerName);
-    body = `<h1>Good work. Thoughtful creators.</h1><p>Find digital goods from Booyahstudio and independent makers.</p><ul>${[...creators].map(([slug,name]) => `<li><a href="/store/${encodeURIComponent(slug)}">${escapeHtml(name)}</a></li>`).join('')}</ul><a href="/creator">Create your storefront</a>`;
-  } else if (path.startsWith('/store/') || path.startsWith('/creators/')) {
-    const prefix = path.startsWith('/store/') ? '/store/' : '/creators/';
-    const slug = decodeURIComponent(path.slice(prefix.length));
+    for (const creator of profiles) creators.set(creator.slug, creator.displayName);
+    body = `<h1>Good work. Thoughtful creators.</h1><p>Find digital goods from Booyahstudio and independent makers.</p><ul>${[...creators].map(([slug,name]) => `<li><a href="${getCreatorPath(slug)}">${escapeHtml(name)}</a></li>`).join('')}</ul><a href="/creator">Create your storefront</a>`;
+  } else if (creatorSlugFromPath(path)) {
+    const slug = creatorSlugFromPath(path)!;
+    const profile = profiles.find(creator => creator.slug === slug);
     const items = activeProducts.filter(product => (product.creatorSlug || 'booyahstudio') === slug);
-    body = `<h1>${escapeHtml(items[0]?.sellerName || (slug === 'booyahstudio' ? BUSINESS.name : 'Creator storefront'))}</h1><p>Explore this creator’s digital collection. See each listing for what’s included and the applicable license.</p>${productLinks(items)}`;
-  } else if (path === '/pricing') body = '<h1>Make room for your next chapter.</h1><p>Create your storefront and share original digital products. Start with the free creator plan; available paid plans and membership prices are shown before checkout.</p><p>Paid plans start only after verified payment. Marketplace publication and payment collection require review and provider activation.</p><a href="/creator">Create your storefront</a><a href="/policies/terms">Creator terms</a>';
+    body = `<h1>${escapeHtml(profile?.displayName || items[0]?.sellerName || BUSINESS.name)}</h1><p>${escapeHtml(profile?.bio || 'Explore this creator’s digital collection. See each listing for what’s included and the applicable license.')}</p>${productLinks(items)}`;
+  } else if (path === '/pricing') body = '<h1>Make room for your next chapter.</h1><p>Create your storefront and share original digital products. Creator is ₹499 per month for 10 new products per verified paid period. Studio is ₹899 per month for unlimited product count, memberships and advanced insights. Every file is limited to 10 MB and platform storage availability.</p><p>Paid plans start only after verified payment. Marketplace publication and payment collection require review and provider activation.</p><p>Platform commission is ₹20 per sold item. Settlement eligibility normally starts 72 hours after verified payment and delivery, subject to the provider-approved arrangement and risk review; bank credit timing varies.</p><a href="/creator">Create your storefront</a><a href="/policies/creator-agreement">Creator terms</a>';
   else if (path.startsWith('/product/')) {
     const product = activeProducts.find(item => page.canonicalUrl === `${BASE_URL}/product/${encodeURIComponent(item.slug)}`)!;
     body = `<h1>${escapeHtml(product.title)}</h1><p>${escapeHtml(product.shortDescription)}</p><p>Price: ₹${escapeHtml(product.price.toLocaleString('en-IN'))} INR. One-time purchase.</p><p style="white-space:pre-line">${escapeHtml(product.description)}</p><h2>Features</h2>${list(product.features)}<h2>What’s included</h2>${list(product.whatsIncluded)}${product.requirements?.length ? `<h2>Requirements</h2>${list(product.requirements)}` : ''}${product.licenseTerms ? `<h2>License</h2><p>${escapeHtml(product.licenseTerms)}</p>` : ''}<p>Digital delivery: download the purchased files from your account after payment is confirmed. No physical shipping.</p><p><a href="/policies/refund">Read the refund and cancellation policy</a> before purchasing.</p>`;
@@ -55,6 +60,6 @@ export function renderPublicPageContent(pathname: string, products: typeof PRODU
   }
   return `<main style="max-width:1100px;margin:0 auto;padding:32px 20px;font:16px/1.7 system-ui,sans-serif;color:#242923;background:#faf9f6"><nav aria-label="Main navigation"><a href="/">${escapeHtml(BUSINESS.name)}</a> · <a href="/products">Explore</a> · <a href="/creators">Creators</a> · <a href="/pricing">Start selling</a> · <a href="/about">Our story</a> · <a href="/contact">Support</a></nav>${body}${merchant()}<noscript><p>Enable JavaScript to sign in, purchase and manage your downloads.</p></noscript></main>`;
 }
-export function injectPublicPageContent(shell: string, pathname: string, products: typeof PRODUCTS = PRODUCTS): string {
-  return shell.replace(/<div id="root">[\s\S]*?<\/div>(?=\s*<script|\s*<\/body>)/, `<div id="root">${renderPublicPageContent(pathname, products)}</div>`);
+export function injectPublicPageContent(shell: string, pathname: string, products: typeof PRODUCTS = PRODUCTS, creators: PublicCreator[] = []): string {
+  return shell.replace(/<div id="root">[\s\S]*?<\/div>(?=\s*<script|\s*<\/body>)/, `<div id="root">${renderPublicPageContent(pathname, products, creators)}</div>`);
 }

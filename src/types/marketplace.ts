@@ -45,20 +45,20 @@ export interface CreatorListing extends Omit<Product, 'status'> {
   creatorSlug: string;
   status: ListingStatus;
   membershipEligible: boolean;
-  externalFileUrl?: string | null;
   reviewReason?: string;
   createdAt: string;
   updatedAt: string;
   file: { uploaded: boolean; published?: boolean; fileName?: string; size?: number; uploadedAt?: string };
 }
 export interface CreatorOrderSnapshot {
+  reservePolicyVersion?: string;
   sellerId: string;
   sellerName: string;
   creatorSlug: string;
   commissionBps: number;
-  commissionModel?: 'flat_per_item';
-  commissionPerItemPaise?: number;
-  itemCount?: number;
+  commissionModel?: 'fixed_per_item';
+  unitCommissionPaise?: number;
+  commissionItemCount?: number;
   grossPaise: number;
   commissionPaise: number;
   sellerPaise: number;

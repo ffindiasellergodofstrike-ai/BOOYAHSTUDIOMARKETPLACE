@@ -6,7 +6,7 @@ Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
 Grievance contact: MANISH KUMAR SONKAR, at the same email and address.
 
-Last updated: October 23, 2026
+Last updated: October 24, 2026
 
 - Sets out general disclaimers regarding website availability, digital product compatibility, and third-party tools.
 - Clarifies that digital templates are provided "as-is" and require appropriate developer skills and environment setup.
@@ -35,6 +35,8 @@ You are responsible for reviewing technical prerequisites before purchase and en
 ## 4. Service Availability, External Networks & Third Parties
 
 While we maintain reliable cloud hosting, we do not guarantee uninterrupted, error-free website access 100% of the time. Temporary downtime may occur due to scheduled maintenance, server updates, telecom outages, or external network issues beyond our control.
+
+A paid plan’s unlimited product-count allowance does not promise unlimited infrastructure resources, free hosting forever, instant provider approval, uninterrupted API availability, or settlement by a fixed date. File size, actual storage/traffic quotas and provider risk/onboarding rules remain applicable. We show actionable failure/retry states and do not mark an unverified external operation successful.
 
 ## 5. General Disclaimers & Warranty Exclusions
 

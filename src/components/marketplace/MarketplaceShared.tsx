@@ -1,10 +1,10 @@
+import { getCreatorPath } from '../../config/creatorRoutes';
 import React from 'react';
 import { ArrowRight, ArrowUpRight, Check, Image as ImageIcon, RefreshCw, Sparkles } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Spinner } from '../ui/Spinner';
 import type { CreatorCard } from '../../services/MarketplaceService';
 import '../../styles/marketplace.css';
-
 export const marketplaceMoney = (amount: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(amount) || 0);
 export const marketplaceDate = (value?: string | number) => value && Number.isFinite(new Date(value).getTime()) ? new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 const statusLabels: Record<string, string> = { creation_uncertain: 'Checking payment setup', pending_provider: 'Awaiting provider confirmation', cancel_scheduled: 'Cancellation scheduled', review_required: 'Under review', not_published: 'Awaiting publication' };
