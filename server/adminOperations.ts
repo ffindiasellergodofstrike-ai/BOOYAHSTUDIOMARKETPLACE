@@ -4,7 +4,7 @@ import { AuditLogger, generateRequestId } from './audit';
 import { appOrigin } from './config';
 import { cashfreeConfig } from './cashfree';
 import { paymentEnvironment } from './razorpay';
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin, isSupabaseAdminConfigured, isSupabaseAuthConfigured } from './supabase';
 import { sendOrderEmail } from './orderEmail';
 import { adminAccessStatus, adminEmailStatus } from '../src/services/AdminOrderStatus';
 
@@ -66,7 +66,7 @@ adminOperationsRouter.post('/orders/:id/retry-email', async (req:any,res) => {
   const messages: Record<string,string> = {
     sent:'The email was already accepted or has now been accepted by the provider. Check the delivery status.',
     queued:'The email is queued; retry backoff or an active send is still in effect.',
-    not_configured:'Configure the Resend API key and verified sender in Vercel, then retry.',
+    not_configured:'Configure the Resend API key and verified sender in hosting settings, then retry.',
     review_required:'Review the provider delivery record before resending. Automatic retry is paused.',
     skipped:'This order is not eligible for a purchase confirmation. Verify payment and active access first.',
     unavailable:'Email processing is temporarily unavailable. The purchase has not been changed.',
@@ -74,7 +74,7 @@ adminOperationsRouter.post('/orders/:id/retry-email', async (req:any,res) => {
   res.json({success:true,result,order:adminOrderSummary(await Store.getGlobalOrder(order.id)),message:messages[result.status]});
 });
 adminOperationsRouter.get('/readiness', async (_req,res) => {
-  const configured = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const configured = isSupabaseAdminConfigured();
   let reachable = false, schemaReady = false, privateBucket: boolean | null = null;
   if (configured) {
     const checks = await Promise.allSettled([
@@ -95,22 +95,22 @@ adminOperationsRouter.get('/readiness', async (_req,res) => {
   if (reachable) { try { lastRun = await Store.get('operations/reconciliationLastRun'); } catch { /* health remains useful during a partial outage */ } }
   const readiness = {
     appUrl:{configured:Boolean(origin),origin},
-    supabase:{configured,reachable,schemaReady,authConfigured:Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY)},
+    supabase:{configured,reachable,schemaReady,authConfigured:isSupabaseAuthConfigured()},
     productStorage:{private:privateBucket},cashfree,
     razorpay:{configured:Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),environment:paymentEnvironment()},
     resend:{apiConfigured:Boolean(process.env.RESEND_API_KEY),senderConfigured:Boolean(process.env.RESEND_FROM_EMAIL),webhookConfigured:Boolean(process.env.RESEND_WEBHOOK_SECRET)},
     scheduler:{configured:Boolean(process.env.CRON_SECRET),lastRun},
   };
   const checks = [
-    {id:'origin',label:'Trusted website URL',status:origin?'ready':'error',message:origin || 'Set a valid APP_URL in Vercel and redeploy.'},
-    {id:'database',label:'Supabase database connection',status:reachable?'ready':configured?'error':'not_configured',message:reachable?'The server-only store responded.':'Check Supabase URL/service-role key and run the schema.'},
-    {id:'schema',label:'Cashfree database migration',status:schemaReady?'ready':configured?'error':'not_configured',message:schemaReady?'Cashfree reference table is available.':'Apply the baseline and Cashfree SQL migrations from the ZIP.'},
+    {id:'origin',label:'Trusted website URL',status:origin?'ready':'error',message:origin || 'Set a valid APP_URL in hosting settings and redeploy.'},
+    {id:'database',label:'Supabase database connection',status:reachable?'ready':configured?'error':'not_configured',message:reachable?'The server-only store responded.':'Check the Supabase URL/server secret key and apply the current SQL migrations.'},
+    {id:'schema',label:'Cashfree database migration',status:schemaReady?'ready':configured?'error':'not_configured',message:schemaReady?'Cashfree reference table is available.':'Apply the baseline and current SQL migrations from the repository deployment guide.'},
     {id:'auth',label:'Supabase email/password Auth',status:readiness.supabase.authConfigured?'manual':'not_configured',message:'Configure confirmation, recovery redirects/template and Resend SMTP in Supabase; test a real inbox.'},
     {id:'storage',label:'Private product storage',status:privateBucket===true?'ready':'error',message:privateBucket===true?'The products bucket is private. Verify each file in Products.':'Create or secure the private products bucket before accepting payments.'},
-    {id:'cashfree',label:'Cashfree configuration',status:cashfree.configured?'manual':'not_configured',message:cashfree.configured?`Keys configured for ${cashfree.environment}; merchant activation, webhooks and a real payment still need verification.`:'Set matching CASHFREE_APP_ID, CASHFREE_SECRET_KEY and CASHFREE_ENV in Vercel.'},
+    {id:'cashfree',label:'Cashfree configuration',status:cashfree.configured?'manual':'not_configured',message:cashfree.configured?`Keys configured for ${cashfree.environment}; merchant activation, webhooks and a real payment still need verification.`:'Set matching CASHFREE_APP_ID, CASHFREE_SECRET_KEY and CASHFREE_ENV in hosting settings.'},
     {id:'resend',label:'Order email configuration',status:readiness.resend.apiConfigured&&readiness.resend.senderConfigured?'manual':'not_configured',message:'Verify the Resend sending domain, API key and sender; test inbox delivery.'},
     {id:'email_events',label:'Email delivery tracking',status:readiness.resend.webhookConfigured?'manual':'not_configured',message:'Configure the signed Resend webhook; API acceptance alone is not inbox delivery.'},
-    {id:'scheduler',label:'Reconciliation and email retry scheduler',status:readiness.scheduler.configured?'manual':'not_configured',message:'A daily Vercel fallback is declared in the repository. Set CRON_SECRET and verify its last run after deployment. For prompt email retries and payment recovery, use a 5-minute authenticated scheduler (Vercel Pro or external); a secret alone does not verify any job ran.'},
+    {id:'scheduler',label:'Reconciliation and email retry scheduler',status:readiness.scheduler.configured?'manual':'not_configured',message:'Configure the authenticated scheduler supported by your hosting plan, set CRON_SECRET and verify its actual last run after deployment. Free-plan timing and usage limits apply; a configured secret alone does not prove a job ran.'},
   ];
   res.json({success:true,readiness,checks,appUrl:origin,environment:cashfree.environment,lastReconciledAt:lastRun?.completedAt || null});
 });

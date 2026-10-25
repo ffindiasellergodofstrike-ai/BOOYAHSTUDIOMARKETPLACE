@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { BUSINESS } from '../src/config/business';
+import { isSupabaseAdminConfigured } from './supabase';
 
 export interface EasebuzzInitiateParams {
   key: string;
@@ -322,7 +323,7 @@ export const getEasebuzzDashboardUrl = (env: 'prod' | 'test'): string => {
 export function easebuzzConfig() {
   const mode = process.env.EASEBUZZ_ENV || 'test';
   if (mode !== 'test' && mode !== 'prod') throw new Error('EASEBUZZ_ENV must be test or prod.');
-  return { mode, environment: mode === 'prod' ? 'live' : 'test', configured: Boolean(process.env.EASEBUZZ_KEY && process.env.EASEBUZZ_SALT && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY), base: getEasebuzzBaseUrl(mode), dashboard: getEasebuzzDashboardUrl(mode) };
+  return { mode, environment: mode === 'prod' ? 'live' : 'test', configured: Boolean(process.env.EASEBUZZ_KEY && process.env.EASEBUZZ_SALT && isSupabaseAdminConfigured()), base: getEasebuzzBaseUrl(mode), dashboard: getEasebuzzDashboardUrl(mode) };
 }
 async function easebuzzFormRequest(base: string, endpoint: string, payload: URLSearchParams) {
   const response = await fetch(`${base}${endpoint}`, { method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: payload.toString(), signal: AbortSignal.timeout(15000) });

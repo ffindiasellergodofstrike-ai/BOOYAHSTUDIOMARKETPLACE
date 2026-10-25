@@ -12,7 +12,8 @@ test('private and missing routes are not indexed; current catalog drives product
  const store=getSEOPageData('/store/real-creator',{},[{...product,creatorSlug:'real-creator',sellerName:'Real Creator'}]);
  assert.equal(store.statusCode,200);assert.equal(store.canonicalUrl.endsWith('/store/real-creator'),true);
  assert.equal(getSEOPageData('/creators/real-creator',{},[{...product,creatorSlug:'real-creator',sellerName:'Real Creator'}]).canonicalUrl,store.canonicalUrl);
- assert.ok(publicCanonicalPaths(PRODUCTS,['real-creator']).includes('/store/real-creator'));
+ assert.ok(publicCanonicalPaths(PRODUCTS,[{id:'real-creator',slug:'real-creator',displayName:'Real Creator',headline:'Original work',bio:''}]).includes('/store/real-creator'));
+ assert.equal(getSEOPageData('/store/no-such-seller',{},[]).statusCode,404);
  const hostile=injectSEOMetadata('<html><head><title>Old</title></head></html>',{...page,jsonLd:[{name:'</script><script>bad()</script>'}]});
  assert.doesNotMatch(hostile,/<script>bad/);
 });

@@ -6,7 +6,7 @@ Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
 Grievance contact: MANISH KUMAR SONKAR, at the same email and address.
 
-Last updated: October 23, 2026
+Last updated: October 24, 2026
 
 - Explains how BooyahMarket collects, uses, stores, and protects your personal data.
 - Covers account details, order history, payment verification info, download logs, and email communications.
@@ -34,6 +34,9 @@ We collect information needed to provide your account, digital orders and custom
 • Product updates: Your email and subscription record if you separately choose to subscribe to updates.
 • Creator onboarding: public storefront name, bio and listings; private legal, identity, tax, payout and provider-onboarding details where needed. Sensitive payout details are encrypted with server-held keys and are not included in public profiles.
 • Subscriptions: plan, renewal mode, mandate/provider references, verified paid periods, cancellation and billing history. We do not store bank mandate secrets or UPI PINs.
+• Seller-only KYC: PAN, legal/tax details and registered bank/approved payout information needed for seller onboarding. Ordinary buyer registration/purchase does not require PAN. A format check is not identity verification. Any additional identity document must be requested only for a necessary, approved verification purpose through the private workflow.
+• Product handling: product archives, source file URLs submitted for a supported import, private staging/review records and file safety/size metadata.
+• Risk and reserves: affected orders, risk reasons, review dates, dispute records, notices and provider release/settlement references. These records distinguish internal eligibility, provider acceptance and confirmed bank settlement.
 
 ## 3. Cookies & Local Browser Storage
 
@@ -46,6 +49,10 @@ Payment information is entered on the payment provider’s checkout, including C
 We share only the data necessary to operate the store with service providers for authentication and data storage (including Supabase), hosting (including Vercel), transactional email (including Resend), and payment processing (including Cashfree, Razorpay, Easebuzz and the original processor for an existing order). These services may process data outside your region according to their service terms and privacy practices. They are not appointed as alternative owners or grievance contacts for BooyahMarket.
 
 For approved marketplace payments, necessary seller identity/payout details and the order’s split amounts are provided to the selected provider for onboarding, verification, settlement and compliance. A creator sees only the order information needed to fulfill and support their own sales; they cannot see another creator’s orders or private KYC. Relevant transaction and evidence records may be supplied to the original provider for a dispute. We never send customer passwords, service keys, UPI PINs or all customers’ data as payment metadata.
+
+Seller PAN and required legal/payout information are encrypted in the server-side Supabase database and are not public profile fields. Necessary seller information may be sent to the selected provider and its authorized verification/banking partners for the approved onboarding, tax, payout or compliance purpose. Submission does not mean that all three gateways receive every seller’s complete KYC. Public business disclosures have a separate publication consent. A seller can see the status of their own onboarding; they cannot view another seller’s private KYC.
+
+Product ZIP files are held in private Supabase Storage for validation/review and authorized delivery. A supported direct-link import retrieves only the permitted file into private storage; the submitted URL is not itself a buyer download entitlement. Storage region and infrastructure processing follow the actually configured project/provider settings; we do not claim a particular physical location without that configuration being confirmed.
 
 ## 5. Purposes of Data Processing & Email Communications
 
@@ -61,9 +68,9 @@ We do not sell, rent or trade personal data to third parties for marketing.
 
 ## 6. Data Security, Safeguards & Retention
 
-We implement industry-standard administrative, technical, and physical safeguards—including SSL/TLS encryption, hashed passwords, and restricted server access—to protect your personal information against unauthorized access, loss, or disclosure.
+We use TLS for service connections, server-held encryption keys for private seller identity/payout fields, private file storage, limited service-role access and masked public/admin status views. Full PAN or bank data must not be placed in public URLs, browser storage, product metadata, analytics, email attachments or routine logs. Providers may separately retain verification records under their legal obligations. No system is represented as immune to every security incident.
 
-We retain order records and transaction logs for as long as required to fulfill legal, tax, accounting, and dispute resolution requirements.
+We retain only information needed for account service, seller verification, tax/accounting, payment support, fraud prevention, disputes and legal obligations. A 120-day risk review target is not a universal KYC deletion period or permission to keep every document forever. We review continued need and handle access/correction/deletion requests through the named grievance contact, subject to required retention and account-holder verification.
 
 ## 7. Record Sharing for Dispute Minimisation
 

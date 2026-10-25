@@ -8,12 +8,12 @@ import type { Product } from '../types';
 import { MarketplaceService, type CreatorCard } from '../services/MarketplaceService';
 import { CreatorAvatar, MarketEmpty, MarketError, MarketLoading } from '../components/marketplace/MarketplaceShared';
 import { MembershipOffers } from '../components/marketplace/MembershipOffers';
+import { creatorSlugFromPath } from '../config/creatorRoutes';
 
 export const CreatorStorefrontPage: React.FC = () => {
   const { currentPath, navigate } = useApp();
   const catalog = useProductCatalog();
-  let slug = currentPath.split('/')[2] || 'booyahstudio';
-  try { slug = decodeURIComponent(slug); } catch { /* A malformed address should render the normal unavailable state. */ }
+  const slug = creatorSlugFromPath(currentPath) || '';
   const [creator, setCreator] = useState<CreatorCard | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);

@@ -6,7 +6,7 @@ Customer support and grievances: connectbooyahstudio@gmail.com
 WhatsApp: +91 7393845435 (https://wa.me/917393845435)
 Grievance contact: MANISH KUMAR SONKAR, at the same email and address.
 
-Last updated: October 23, 2026
+Last updated: October 24, 2026
 
 - Digital purchases are generally final after payment is confirmed and access is provided; change-of-mind refunds are generally unavailable.
 - Duplicate payments, wrong or missing files, unresolved material defects and non-delivery remain eligible for review.
@@ -89,3 +89,5 @@ If a bank dispute and a refund request concern the same payment, we coordinate w
 ## Subscription Cancellation & Refunds
 
 Cancel a creator paid plan or customer membership from its account controls to stop future renewal. Automatic renewal cancellation is confirmed with the original provider; an unsuccessful or pending cancellation requires follow-up with support. A manual plan never automatically charges again. Cancelling a plan does not itself refund a completed billing period. Ordinary change of mind after digital access is provided is generally ineligible, while duplicate charges, non-delivery, material defects, incorrect charges and non-excludable statutory remedies remain eligible for review. A confirmed refund or chargeback may revoke the affected subscription period or products; unrelated valid one-time purchases remain available. Downgrading a creator plan does not delete prior orders or remove buyers’ valid purchased files.
+
+Creator plan allowances follow the verified paid monthly period: 10 new creations for ₹499, or no product-count limit for ₹899, subject to the disclosed file/storage limits. Cancelling does not retroactively remove a legitimately consumed creation allowance or automatically refund a delivered paid period. A changed offer must be reviewed and accepted again before a new purchase; legitimate non-delivery, incorrect charges and non-excludable remedies remain available. A risk reserve is not a consumer refund and does not prevent an eligible buyer remedy.

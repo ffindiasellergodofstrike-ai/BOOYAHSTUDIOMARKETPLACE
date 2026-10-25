@@ -3,7 +3,7 @@ import type { Express, RequestHandler } from 'express';
 import { BUSINESS } from '../src/config/business';
 import { z } from 'zod';
 import { Store } from './store';
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin, isSupabaseAdminConfigured } from './supabase';
 import { appOrigin } from './config';
 import { policyDocuments, policyVersion } from './policies';
 import { sendOrderEmail, sendRefundEmail } from './orderEmail';
@@ -21,7 +21,7 @@ export function cashfreeConfig() {
   if (!/^20\d{2}-\d{2}-\d{2}$/.test(version)) throw new Error('Invalid Cashfree API version.');
   return { mode, environment: mode === 'production' ? 'live' : 'test', version,
     base: mode === 'production' ? 'https://api.cashfree.com/pg/' : 'https://sandbox.cashfree.com/pg/',
-    configured: Boolean(process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
+    configured: Boolean(process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY && isSupabaseAdminConfigured()),
   };
 }
 export class CashfreeError extends Error {

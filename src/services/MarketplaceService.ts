@@ -10,13 +10,14 @@ export interface CreatorCard {
   [key: string]: unknown;
 }
 export interface CreatorListing extends Omit<Product, 'status'> {
+  file?: { uploaded?: boolean; published?: boolean; fileName?: string; size?: number; uploadedAt?: string };
   status: 'draft' | 'pending' | 'active' | 'rejected' | 'archived';
-  sellerId?: string; sellerName?: string; privateFileReady?: boolean; externalFileUrl?: string | null; file?: { uploaded?: boolean; published?: boolean; fileName?: string; size?: number };
+  sellerId?: string; sellerName?: string; privateFileReady?: boolean;
   fileStatus?: string; reviewNote?: string; rejectionReason?: string;
   [key: string]: unknown;
 }
 export interface MarketplaceConfig {
-  settings?: { commissionBps?: number; commissionPaisePerItem?: number; registrationEnabled?: boolean; [key: string]: unknown };
+  settings?: { commissionBps?: number; registrationEnabled?: boolean; [key: string]: unknown };
   companyCreator?: CreatorCard; creatorPlans?: any[]; agreement?: string | { version: string; title: string; terms: string[] }; categories?: string[];
   [key: string]: unknown;
 }
@@ -55,13 +56,19 @@ export const MarketplaceService = {
   updateListing: (id: string, listing: unknown) => request(`/me/listings/${segment(id)}`, json('PATCH', listing)),
   submitListing: (id: string) => request(`/me/listings/${segment(id)}/submit`, json('POST', {})),
   uploadListing: async (id: string, file: File) => {
-    const prepared = await request<{ upload: { uploadId: string; signedUrl: string } }>(`/me/listings/${segment(id)}/upload`, json('POST', { fileName: file.name, size: file.size }));
-    let uploaded: Response;
-    try { uploaded = await fetch(prepared.upload.signedUrl, { method: 'PUT', headers: { 'Content-Type': 'application/zip', 'x-upsert': 'false' }, body: file, signal: AbortSignal.timeout(120_000) }); }
-    catch { throw new MarketplaceApiError('The private upload connection failed. Please retry.', 0); }
-    if (!uploaded.ok) throw new MarketplaceApiError('The private upload failed. Please retry.', uploaded.status);
-    return request(`/me/listings/${segment(id)}/upload/complete`, json('POST', { uploadId: prepared.upload.uploadId }));
+    if (!/\.zip$/i.test(file.name) || file.size < 22 || file.size > 10 * 1024 * 1024) throw new MarketplaceApiError('Choose one non-empty ZIP file up to 10 MB.', 400);
+    const intent = await request<{ uploadId: string; uploadUrl: string; uploadOrigin: string; expiresAt: number; method: string }>(`/me/listings/${segment(id)}/upload-intent`, json('POST', { fileName: file.name, size: file.size }));
+    let target: URL;
+    try { target = new URL(intent.uploadUrl); } catch { throw new MarketplaceApiError('Private Storage returned an invalid upload address. Please try again.', 503); }
+    if (target.protocol !== 'https:' || target.username || target.password || target.origin !== intent.uploadOrigin ||
+        !target.pathname.startsWith('/storage/v1/object/upload/sign/products/_creators/') || !/^[a-f0-9]{32}$/.test(intent.uploadId) || intent.method !== 'PUT' || intent.expiresAt <= Date.now()) throw new MarketplaceApiError('Private Storage could not prepare a safe upload. Please try again.', 503);
+    let response: Response;
+    try { response = await fetch(target.toString(), { method: 'PUT', credentials: 'omit', headers: { 'Content-Type': 'application/zip', 'x-upsert': 'false' }, body: file, signal: AbortSignal.timeout(120_000) }); }
+    catch { throw new MarketplaceApiError('The file upload did not finish. Check your connection and choose the ZIP again.', 0); }
+    if (!response.ok) throw new MarketplaceApiError(response.status === 413 ? 'The file exceeds the 10 MB Storage limit.' : 'Private Storage could not accept this ZIP. Please try again.', response.status);
+    return request(`/me/listings/${segment(id)}/upload-complete`, json('POST', { uploadId: intent.uploadId }));
   },
+  importListing: (id: string, url: string) => request(`/me/listings/${segment(id)}/import-link`, json('POST', { url, fileName: 'product.zip' })),
   membershipPlans: () => request('/plans?audience=customer'),
   saveMembershipPlan: (id: string | undefined, plan: unknown) => request(`/me/membership-plans${id ? `/${segment(id)}` : ''}`, json(id ? 'PATCH' : 'POST', plan)),
 };

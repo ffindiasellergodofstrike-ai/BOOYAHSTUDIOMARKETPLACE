@@ -33,6 +33,7 @@ import { CreatorDirectoryPage } from './pages/CreatorDirectoryPage';
 import { CreatorStorefrontPage } from './pages/CreatorStorefrontPage';
 import { PricingPage } from './pages/PricingPage';
 import { CustomerMemberships } from './components/CustomerMemberships';
+import { creatorSlugFromPath } from './config/creatorRoutes';
 import {
   SUPPORTED_POLICY_SLUGS,
   POLICY_REDIRECTS,
@@ -53,7 +54,7 @@ const AppContent: React.FC = () => {
 
   // Route Resolver
   const renderCurrentPage = () => {
-    if (currentPath.startsWith('/store/') || currentPath.startsWith('/creators/')) return <CreatorStorefrontPage />;
+    if (creatorSlugFromPath(currentPath)) return <CreatorStorefrontPage />;
     if (currentPath.startsWith('/product/')) {
       return <ProductDetailsPage />;
     }

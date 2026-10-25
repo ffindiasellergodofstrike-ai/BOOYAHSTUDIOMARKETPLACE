@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { Express, RequestHandler } from 'express';
 import { z } from 'zod';
 import { Store } from './store';
+import { isSupabaseAdminConfigured } from './supabase';
 
 export const gatewayProviders = ['cashfree', 'razorpay', 'easebuzz'] as const;
 export type GatewayProvider = typeof gatewayProviders[number];
@@ -19,7 +20,7 @@ const defaults: GatewaySettings = { version: 1, enabled: { cashfree: false, razo
 
 /** Missing settings never silently activate a payment account. */
 export async function getGatewaySettings(): Promise<GatewaySettings> {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return { ...defaults, enabled: { ...defaults.enabled } };
+  if (!isSupabaseAdminConfigured()) return { ...defaults, enabled: { ...defaults.enabled } };
   const stored = await Store.get<GatewaySettings>(settingsKey);
   return { ...defaults, ...stored, version: 1, enabled: { ...defaults.enabled, ...stored?.enabled } };
 }
@@ -30,7 +31,7 @@ export function getGatewayCapabilities(provider: GatewayProvider) {
   return { marketplace, subscriptions, automaticRenewal: subscriptions };
 }
 export function gatewayReadiness(provider: GatewayProvider) {
-  const database = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const database = isSupabaseAdminConfigured();
   const credentials = provider === 'cashfree' ? Boolean(process.env.CASHFREE_APP_ID && process.env.CASHFREE_SECRET_KEY)
     : provider === 'razorpay' ? Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET && process.env.RAZORPAY_WEBHOOK_SECRET)
       : Boolean(process.env.EASEBUZZ_KEY && process.env.EASEBUZZ_SALT);

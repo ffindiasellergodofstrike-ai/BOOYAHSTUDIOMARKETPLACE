@@ -3,7 +3,27 @@ import { z } from 'zod';
 import { getGatewayCapabilities, gatewayReadiness, type GatewayProvider } from './gatewayControl';
 import { cashfreeRequest } from './cashfree';
 import { razorpayRequest } from './razorpay';
-import { getCreatorProviderDetails, updateCreatorProviderAccount } from './creatorMarketplace';
+import { getCreatorProviderDetails, updateCreatorProviderAccount, getCreatorById } from './creatorMarketplace';
+import { assertMarketplaceReserveCapability, MARKETPLACE_RESERVE_POLICY_VERSION } from './settlementPolicy';
+
+export async function assertMembershipReservePolicy(creatorId: string, provider: GatewayProvider, accountRef: string) {
+  assertMarketplaceReserveCapability(provider);
+  if ((await getCreatorById(creatorId))?.status !== 'approved') throw new Error('This creator is not currently accepting new payments.');
+  const details = await getCreatorProviderDetails(creatorId, provider);
+  if (!details?.kyc || details.account?.status !== 'verified' || details.account.reference !== accountRef) throw new Error('A verified seller bank account is required.');
+  if (provider === 'razorpay') {
+    const productId = /^activated:(acc_prd_[A-Za-z0-9]+)$/.exec((details.account as any).providerStatus || '')?.[1];
+    if (!/^acc_[A-Za-z0-9]+$/.test(accountRef) || !productId) throw new Error('A provider-verified Route bank product is required.');
+    const product = await razorpayRequest(`accounts/${accountRef}/products/${productId}`, undefined, 'v2');
+    const bank = product.active_configuration?.settlements;
+    if (product.account_id !== accountRef || product.id !== productId || product.product_name !== 'route' || product.activation_status !== 'activated' || String(bank?.account_number) !== details.kyc.bankAccount || String(bank?.ifsc_code).toUpperCase() !== details.kyc.ifsc.toUpperCase() || bank?.vpa || bank?.upi) throw new Error('Delayed settlement requires an approved matching bank Route account; instant VPA settlement is not supported.');
+  } else if (provider === 'cashfree') {
+    const vendor = await cashfreeRequest(`easy-split/vendors/${accountRef}`);
+    const schedule = Array.isArray(vendor.schedule_option) ? vendor.schedule_option[0] : vendor.schedule_option;
+    if (vendor.vendor_id !== accountRef || vendor.status !== 'ACTIVE' || vendor.upi || Number(schedule?.schedule_id) !== Number(process.env.CASHFREE_RESERVE_SCHEDULE_ID) || !/T\s*\+\s*(?:[3-9]|[1-9]\d+)/i.test(String(schedule?.settlement_schedule_message))) throw new Error('The approved delayed bank settlement schedule is not active for this Cashfree vendor.');
+  }
+  return { version: MARKETPLACE_RESERVE_POLICY_VERSION, normalReserveHours: 72, riskReviewDays: 120 };
+}
 
 /** Easebuzz supplies approved bank labels out of band. They cannot be invented or activated in the admin UI. */
 function approvedEasebuzzLabel(creatorId: string, environment: string) {
@@ -25,7 +45,8 @@ export async function verifyCreatorGatewayAccount(creatorId: string, provider: G
   if (provider === 'cashfree') {
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(reference)) throw new Error('Invalid Cashfree vendor reference.');
     const vendor = await cashfreeRequest(`easy-split/vendors/${reference}`);
-    if (vendor.vendor_id !== reference || vendor.status !== 'ACTIVE' || String(vendor.bank?.account_number) !== kyc.bankAccount || String(vendor.bank?.ifsc).toUpperCase() !== kyc.ifsc.toUpperCase()) throw new Error('Cashfree vendor is not active or does not match this creator’s bank account.');
+    const bank = Array.isArray(vendor.bank) ? vendor.bank.find((entry: any) => String(entry.account_number) === kyc.bankAccount) : vendor.bank;
+    if (vendor.vendor_id !== reference || vendor.status !== 'ACTIVE' || String(bank?.account_number) !== kyc.bankAccount || String(bank?.ifsc).toUpperCase() !== kyc.ifsc.toUpperCase()) throw new Error('Cashfree vendor is not active or does not match this creator’s bank account.');
     providerStatus = vendor.status;
   } else if (provider === 'razorpay') {
     const existing: any = details.account;
@@ -53,8 +74,9 @@ export async function marketplaceSplitForOrder(order: any, provider: GatewayProv
   if (account?.status !== 'verified' || account.reference !== snapshot.providerAccountId || account.environment !== gatewayReadiness(provider).environment) throw new Error('This creator is not verified for this payment provider and environment.');
   const productId = account.productId || (/^activated:(acc_prd_[A-Za-z0-9]+)$/.exec(account.providerStatus || '')?.[1]);
   await verifyCreatorGatewayAccount(snapshot.sellerId, provider, account.reference, productId, false);
+  if (snapshot.reservePolicyVersion === MARKETPLACE_RESERVE_POLICY_VERSION) await assertMembershipReservePolicy(snapshot.sellerId, provider, account.reference);
   if (provider === 'cashfree') return { order_splits: [{ vendor_id: account.reference, amount: snapshot.sellerPaise / 100 }] };
-  if (provider === 'razorpay') return { transfers: [{ account: account.reference, amount: snapshot.sellerPaise, currency: 'INR', notes: { store_order_id: order.id, seller_id: snapshot.sellerId } }] };
+  if (provider === 'razorpay') return { transfers: [{ account: account.reference, amount: snapshot.sellerPaise, currency: 'INR', ...(snapshot.reservePolicyVersion === MARKETPLACE_RESERVE_POLICY_VERSION ? { on_hold: true } : {}), notes: { store_order_id: order.id, seller_id: snapshot.sellerId } }] };
   return { splitPayments: { [account.reference]: snapshot.sellerPaise / 100 } };
 }
 

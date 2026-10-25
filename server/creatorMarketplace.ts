@@ -1,26 +1,32 @@
 import crypto from 'node:crypto';
 import type { Express, RequestHandler } from 'express';
 import { Router } from 'express';
+import multer from 'multer';
 import { z } from 'zod';
 import { Store } from './store';
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin, isSupabaseAdminConfigured } from './supabase';
 import { seal, unseal } from './privateData';
 import { verifyStagedZipHeader } from './adminManagement';
+import { PROXIED_UPLOAD_LIMIT_BYTES } from '../src/config/uploadLimits';
 import type { Product } from '../src/types';
 import type { CreatorProfile, CreatorListing, CreatorOrderSnapshot, CreatorSummary, MarketplaceGateway, PublicCreator } from '../src/types/marketplace';
 import { policyDocuments, policyVersion } from './policies';
 import { BUSINESS } from '../src/config/business';
 import { PRODUCTS } from '../src/data/products';
+import { fixedCommissionForItems } from './marketplaceFees';
+import { isCreatorSlug } from '../src/config/creatorRoutes';
+import { assertMarketplaceReserveCapability, MARKETPLACE_RESERVE_POLICY_VERSION } from './settlementPolicy';
+import { CREATOR_UPLOAD_LIMIT_BYTES, CreatorUploadError, createCreatorUploadTicket, getCreatorUploadTicket, verifyCreatorStagedFile, validateCreatorFileName, validateCreatorZip, importCreatorZip } from './creatorUploads';
 
 const creatorAgreementContent = {
   title: `${BUSINESS.name} Creator Agreement`, terms: [
-    'You must be at least 18 and provide accurate identity, ownership, bank and tax information. Publishing approval does not constitute payment-provider KYC or settlement approval.',
+    'You must be at least 18, legally able to contract, and provide accurate identity, legal, tax and registered payout information. Seller PAN and provider-required verification are required for seller onboarding; ordinary buyers do not need PAN. A submitted PAN format is not completed KYC, and publishing approval does not constitute provider or settlement approval.',
     `Publish only original digital work you own or have permission to distribute. You retain ownership; you grant ${BUSINESS.name} permission to display, sell and privately deliver the listed work to entitled customers.`,
-    'You may upload one ZIP archive of up to 10 MB to the private Supabase Storage products bucket, or provide a direct HTTPS download link that you control. External links must be accessible to buyers after purchase, free of passwords or misleading redirects, and must not contain personal or confidential information. External hosts may expose or revoke their links; do not use them for files requiring private access.',
+    'You may upload one ZIP archive of up to 10 MB to private Supabase Storage, or submit an eligible public HTTPS direct file link through the supported import flow. Files and listings require review before sale. External links must be accessible, safe and free of passwords or misleading redirects; external hosts may expose or revoke links, so do not use them for files requiring private access.',
     'Do not list illegal goods or services, stolen or counterfeit goods, pirated or infringing files, malware, credential theft tools, personal data, deceptive schemes, unauthorized financial or investment products, gambling, weapons, controlled substances, explicit sexual exploitation, or content restricted by law or a payment provider. Provider-specific prohibited-business rules also apply and may change; review current Cashfree, Razorpay and Easebuzz requirements before listing.',
-    'The platform fee for creator product sales is a flat ₹20 per product item, deducted from the verified order proceeds and recorded per order. Paid plan fees are separate. Provider charges, applicable taxes and verified refunds may affect final proceeds.',
-    'Our target is to release eligible seller proceeds on T+3 after the payment is received and cleared, with a three-day dispute and complaint review hold. This is subject to the provider settlement schedule, account verification, reserves, legal requirements and open disputes; the earnings ledger is not proof of bank settlement.',
-    'If an account is suspended for excessive chargebacks, fraud, legal complaints or serious policy violations, funds may be reserved for up to 120 days, where legally permitted, while disputes and liabilities are reviewed. After resolution, any verified remaining balance is released to the registered bank account, subject to provider processing and lawful deductions.',
+    'Creator is INR499 per month for 10 new product creations per verified paid billing period. Studio is INR899 per month with unlimited product creations and available premium features; storage limits and the 10 MB per-file cap still apply.',
+    'The platform fee for creator product sales is a flat ₹20 per product item, recorded with the order. Paid plan fees are separate. Provider charges, applicable taxes, verified refunds and disputes may affect final proceeds.',
+    'Provider-approved marketplace onboarding and a verified seller account are required for third-party sales. Eligible proceeds normally enter provider-controlled settlement after a 72-hour review period, subject to provider schedules, account verification, disputes and legal requirements. Risk reserves may be reviewed for up to 120 days with a recorded reason and appeal; the earnings ledger is not proof of bank settlement or a promise of fixed-date bank credit.',
     'Customers retain access to completed purchases according to the product licence. Routine change-of-mind refunds are unavailable after digital delivery; duplicate charges, failed delivery, materially incorrect products and legal rights are reviewed by support.',
     'Paid creator plans and customer memberships have separate prices, paid periods and cancellation terms. A plan purchase does not guarantee sales or provider approval.',
     'Accounts may be suspended and offers removed for violations, fraud or provider risk requirements. Valid buyer access and legally required records may be retained after withdrawal.'
@@ -35,8 +41,8 @@ export const CREATOR_COMMISSION_PER_ITEM_PAISE = 2000;
 export const CREATOR_UPLOAD_LIMIT_BYTES = 10 * 1024 * 1024;
 export const COMPANY_CREATOR: PublicCreator = { id: 'booyahstudio', slug: 'booyahstudio', displayName: BUSINESS.name, headline: `Original digital products, made by ${BUSINESS.name}.`, bio: `Explore the original ${BUSINESS.name} collection of templates, code and digital resources.`, isPlatform: true, publicBusiness: { businessName: BUSINESS.owner, businessAddress: BUSINESS.address, supportEmail: BUSINESS.email, supportPhone: BUSINESS.phone, grievanceName: BUSINESS.owner } };
 
-type InternalCreator = Omit<CreatorProfile, 'providerAccounts' | 'publicBusiness'> & { publicBusiness?: CreatorProfile['publicBusiness'] & { publishConsent: true }; encryptedIdentity?: string; encryptedKyc?: string; suspendedAt?: string; agreementAcceptance?: { userId: string; acceptedAt: string; version: string; hash: string; policyVersion: string; ip: string; userAgent: string }; providerAccounts: Partial<Record<MarketplaceGateway, NonNullable<CreatorProfile['providerAccounts'][MarketplaceGateway]> & { providerStatus?: string }>> };
-type InternalListing = CreatorListing & { externalFileUrl?: string | null; file: CreatorListing['file'] & { stagingPath?: string; published?: boolean; sha256?: string }; revision: number };
+type InternalCreator = Omit<CreatorProfile, 'providerAccounts' | 'publicBusiness'> & { publicBusiness?: CreatorProfile['publicBusiness'] & { publishConsent: true }; encryptedIdentity?: string; encryptedKyc?: string; agreementAcceptance?: { userId: string; acceptedAt: string; version: string; hash: string; policyVersion: string; ip: string; userAgent: string }; providerAccounts: Partial<Record<MarketplaceGateway, NonNullable<CreatorProfile['providerAccounts'][MarketplaceGateway]> & { providerStatus?: string }>> };
+type InternalListing = CreatorListing & { file: CreatorListing['file'] & { stagingPath?: string; published?: boolean; sha256?: string }; revision: number };
 class MarketplaceError extends Error { constructor(public status: number, message: string) { super(message); this.name = 'MarketplaceError'; } }
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID().replaceAll('-', '');
@@ -46,11 +52,12 @@ const reason = z.string().trim().min(10).max(1000);
 const plain = (min: number, max: number) => z.string().trim().min(min).max(max).refine(v => !/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(v));
 const publicUrl = z.string().trim().url().max(2000).refine(v => new URL(v).protocol === 'https:' && !new URL(v).username && !new URL(v).password, 'Use a public HTTPS URL.');
 const publicBusinessSchema = z.object({ businessName: plain(2, 120), businessAddress: plain(10, 600), supportEmail: z.string().trim().email().max(254), supportPhone: z.string().trim().regex(/^\+?91[6-9]\d{9}$|^[6-9]\d{9}$/), grievanceName: plain(2, 120), publishConsent: z.literal(true) }).strict();
-const slugSchema = z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9-]{2,49}$/).refine(v => !['booyahstudio', 'admin', 'api', 'creator', 'creators', 'login', 'signup', 'support', 'checkout'].includes(v));
+const slugSchema = z.string().trim().toLowerCase().refine(v => isCreatorSlug(v) && v !== 'booyahstudio', 'Choose an available storefront name using 3–50 lowercase letters, numbers or hyphens.');
 const profileSchema = z.object({ displayName: plain(2, 80), slug: slugSchema, headline: plain(0, 160).default(''), bio: plain(0, 3000).default(''), avatarUrl: publicUrl.optional(), publicBusiness: publicBusinessSchema.optional() });
-const onboardingSchema = profileSchema.extend({ legalName: plain(2, 120), phone: z.string().regex(/^\+?91[6-9]\d{9}$|^[6-9]\d{9}$/), adult: z.literal(true), ownsRights: z.literal(true), acceptAgreement: z.literal(true), agreementVersion: z.literal(CREATOR_AGREEMENT.version) }).strict();
-const kycSchema = z.object({ legalName: plain(2, 120), pan: z.string().trim().toUpperCase().regex(/^[A-Z]{5}\d{4}[A-Z]$/), accountHolder: plain(2, 120), bankAccount: z.string().trim().regex(/^\d{9,18}$/), ifsc: z.string().trim().toUpperCase().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/), address: z.object({ line1: plain(5, 300), city: plain(2, 100), state: plain(2, 100), postalCode: z.string().regex(/^[1-9]\d{5}$/), country: z.literal('IN') }).strict(), consent: z.literal(true) }).strict();
-const listingSchema = z.object({ title: plain(3, 140), shortDescription: plain(20, 400), description: plain(50, 15000), category: z.enum(MARKETPLACE_CATEGORIES as [string, ...string[]]), price: z.number().finite().min(1).max(100000).refine(v => Number.isInteger(Math.round(v * 100)) && Math.abs(v * 100 - Math.round(v * 100)) < 0.00001), image: publicUrl, gallery: z.array(publicUrl).max(6).default([]), features: z.array(plain(1, 200)).min(1).max(20), whatsIncluded: z.array(plain(1, 200)).min(1).max(30), tags: z.array(plain(1, 40)).max(12).default([]), version: plain(1, 40).default('1.0'), requirements: plain(0, 2000).default(''), licenseTerms: plain(10, 4000), previewUrl: publicUrl.optional(), externalFileUrl: z.union([publicUrl, z.literal(''), z.null()]).optional(), membershipEligible: z.boolean().default(false), ownsRights: z.literal(true) }).strict();
+const panSchema = z.string().trim().toUpperCase().regex(/^[A-Z]{5}\d{4}[A-Z]$/, 'Enter a valid PAN.');
+const onboardingSchema = profileSchema.extend({ pan: panSchema, kycConsent: z.literal(true), legalName: plain(2, 120), phone: z.string().regex(/^\+?91[6-9]\d{9}$|^[6-9]\d{9}$/), adult: z.literal(true), ownsRights: z.literal(true), acceptAgreement: z.literal(true), agreementVersion: z.literal(CREATOR_AGREEMENT.version) }).strict();
+const kycSchema = z.object({ legalName: plain(2, 120), pan: panSchema, upiId: z.string().trim().max(320).regex(/^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9._-]{1,63}$/).optional(), accountHolder: plain(2, 120), bankAccount: z.string().trim().regex(/^\d{9,18}$/), ifsc: z.string().trim().toUpperCase().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/), address: z.object({ line1: plain(5, 300), city: plain(2, 100), state: plain(2, 100), postalCode: z.string().regex(/^[1-9]\d{5}$/), country: z.literal('IN') }).strict(), consent: z.literal(true) }).strict();
+const listingSchema = z.object({ title: plain(3, 140), shortDescription: plain(20, 400), description: plain(50, 15000), category: z.enum(MARKETPLACE_CATEGORIES as [string, ...string[]]), price: z.number().finite().min(21, 'Set a product price of at least INR21 to cover the INR20 item fee.').max(100000).refine(v => Number.isInteger(Math.round(v * 100)) && Math.abs(v * 100 - Math.round(v * 100)) < 0.00001), image: publicUrl, gallery: z.array(publicUrl).max(6).default([]), features: z.array(plain(1, 200)).min(1).max(20), whatsIncluded: z.array(plain(1, 200)).min(1).max(30), tags: z.array(plain(1, 40)).max(12).default([]), version: plain(1, 40).default('1.0'), requirements: plain(0, 2000).default(''), licenseTerms: plain(10, 4000), previewUrl: publicUrl.optional(), membershipEligible: z.boolean().default(false), ownsRights: z.literal(true) }).strict();
 
 async function rpc<T = any>(operation: string, key: string, value: unknown): Promise<T> {
   const result = await supabaseAdmin().rpc('marketplace_operation', { operation, key, value });
@@ -63,7 +70,7 @@ async function rpc<T = any>(operation: string, key: string, value: unknown): Pro
 }
 const audit = (actorId: string, action: string, targetId: string, reviewReason?: string) => ({ id: id(), actorId, action, targetId, ...(reviewReason ? { reason: reviewReason } : {}) });
 function parse<T>(schema: z.ZodType<T>, value: unknown): T { const parsed = schema.safeParse(value); if (!parsed.success) throw new MarketplaceError(400, parsed.error.issues[0]?.message || 'Check the form and try again.'); return parsed.data; }
-function handle(handler: (req: any, res: any) => Promise<unknown>): RequestHandler { return (req, res) => { void handler(req, res).catch(error => { res.status(error instanceof MarketplaceError ? error.status : 503).json({ success: false, message: error instanceof MarketplaceError ? error.message : 'Marketplace is temporarily unavailable. Please try again.' }); }); }; }
+function handle(handler: (req: any, res: any) => Promise<unknown>): RequestHandler { return (req, res) => { void handler(req, res).catch(error => { const known = error instanceof MarketplaceError || error instanceof CreatorUploadError; res.status(known ? error.status : 503).json({ success: false, message: known ? error.message : 'Marketplace is temporarily unavailable. Please try again.' }); }); }; }
 function publicBusiness(record: InternalCreator | CreatorProfile) {
   if (!record.publicBusiness) return undefined;
   const { businessName, businessAddress, supportEmail, supportPhone, grievanceName } = record.publicBusiness;
@@ -76,8 +83,7 @@ function safeCreator(record: InternalCreator): CreatorProfile {
 function publicCreator(record: InternalCreator | CreatorProfile): PublicCreator { return { id: record.id, slug: record.slug, displayName: record.displayName, headline: record.headline, bio: record.bio, avatarUrl: record.avatarUrl, publicBusiness: publicBusiness(record) }; }
 function safeListing(record: InternalListing): CreatorListing { const { revision: _revision, file, ...listing } = record; return { ...listing, file: { uploaded: Boolean(file?.uploaded), published: Boolean(file?.published), fileName: file?.fileName, size: file?.size, uploadedAt: file?.uploadedAt } }; }
 function asProduct(listing: InternalListing): Product {
-  const { file: _file, externalFileUrl: _externalFileUrl, revision: _revision, reviewReason: _reviewReason, createdAt: _createdAt, ...product } = listing;
-  if (listing.externalFileUrl) { product.fileFormat = 'External download'; product.fileSize = 'External link'; }
+  const { file: _file, revision: _revision, reviewReason: _reviewReason, createdAt: _createdAt, ...product } = listing;
   return { ...product, status: listing.status === 'active' ? 'active' : 'archived', isPlatformProduct: false };
 }
 async function creatorRecordByUser(userId: string): Promise<InternalCreator | null> { const cid = await Store.get<string>(`marketplace/creatorUsers/${userId}`); return cid ? Store.get<InternalCreator>(`marketplace/creators/${cid}`) : null; }
@@ -85,12 +91,25 @@ export async function getCreatorByUserId(userId: string): Promise<CreatorProfile
 export async function getCreatorById(creatorId: string): Promise<CreatorProfile | null> { if (!identifier.safeParse(creatorId).success) return null; const record = await Store.get<InternalCreator>(`marketplace/creators/${creatorId}`); return record ? safeCreator(record) : null; }
 async function requireCreator(userId: string, allowSuspended = false): Promise<InternalCreator> { const creator = await creatorRecordByUser(userId); if (!creator) throw new MarketplaceError(403, 'Create your creator profile first.'); if (!allowSuspended && ['suspended', 'rejected'].includes(creator.status)) throw new MarketplaceError(403, 'Your creator account requires a support review.'); return creator; }
 async function listingRecord(listingId: string, creatorId?: string): Promise<InternalListing> { if (!identifier.safeParse(listingId).success) throw new MarketplaceError(400, 'Invalid product reference.'); const listing = await Store.get<InternalListing>(`marketplace/listings/${listingId}`); if (!listing || (creatorId && listing.sellerId !== creatorId)) throw new MarketplaceError(404, 'Listing not found.'); return listing; }
-async function creatorLimits(userId: string): Promise<{ productLimit: number | null; monthlyProductLimit: number | null }> { const { getCreatorEntitlements } = await import('./subscriptions'); const entitlement = await getCreatorEntitlements(userId); if (entitlement.productLimit !== null && (!Number.isInteger(entitlement.productLimit) || entitlement.productLimit < 0 || entitlement.productLimit > 10000) || entitlement.monthlyProductLimit !== null && (!Number.isInteger(entitlement.monthlyProductLimit) || entitlement.monthlyProductLimit < 1 || entitlement.monthlyProductLimit > 10000)) throw new MarketplaceError(503, 'Creator plan could not be verified.'); return { productLimit: entitlement.productLimit, monthlyProductLimit: entitlement.monthlyProductLimit }; }
-async function creatorLimit(userId: string): Promise<number | null> { return (await creatorLimits(userId)).productLimit; }
+async function creatorEntitlement(userId: string) {
+  const { getCreatorEntitlements } = await import('./subscriptions');
+  const entitlement = await getCreatorEntitlements(userId);
+  if (entitlement.productLimit !== null && (!Number.isSafeInteger(entitlement.productLimit) || entitlement.productLimit < 0 || entitlement.productLimit > 10000)) throw new MarketplaceError(503, 'Creator plan could not be verified.');
+  return entitlement;
+}
+async function creatorLimit(userId: string): Promise<number | null> { return (await creatorEntitlement(userId)).productLimit; }
+
 function hasCurrentAgreement(creator: InternalCreator): boolean { return creator.agreementVersion === CREATOR_AGREEMENT.version && creator.agreementAcceptance?.version === CREATOR_AGREEMENT.version && creator.agreementAcceptance?.hash === agreementHash && creator.agreementAcceptance?.userId === creator.userId; }
 export async function creatorHasCurrentAgreement(creatorId: string): Promise<boolean> { const creator = await Store.get<InternalCreator>(`marketplace/creators/${creatorId}`); return Boolean(creator && hasCurrentAgreement(creator)); }
 async function writeCreator(previous: InternalCreator, next: InternalCreator, event: ReturnType<typeof audit>) { return rpc<InternalCreator>('creator_write', previous.id, { expected: previous, record: next, audit: event }); }
-async function writeListing(previous: InternalListing | null, next: InternalListing, creator: InternalCreator, actorId: string, action: string, reviewReason?: string) { if (!['LISTING_ARCHIVED', 'LISTING_REJECTED'].includes(action) && !hasCurrentAgreement(creator)) throw new MarketplaceError(409, 'Review and accept the current creator agreement before publishing or updating offers.'); const limits = await creatorLimits(creator.userId); return rpc<InternalListing>('listing_write', next.id, { expected: previous, record: next, owner: creator.userId, limit: limits.productLimit, monthlyLimit: limits.monthlyProductLimit, product: asProduct(next), audit: audit(actorId, action, next.id, reviewReason) }); }
+async function writeListing(previous: InternalListing | null, next: InternalListing, creator: InternalCreator, actorId: string, action: string, reviewReason?: string) {
+  if (!['LISTING_ARCHIVED', 'LISTING_REJECTED'].includes(action) && !hasCurrentAgreement(creator)) throw new MarketplaceError(409, 'Review and accept the current creator agreement before publishing or updating offers.');
+  const entitlement = await creatorEntitlement(creator.userId);
+  if (next.membershipEligible && !previous?.membershipEligible && !entitlement.features.customerMemberships) throw new MarketplaceError(409, 'Customer memberships are included in the Studio creator plan.');
+  if (!previous && !entitlement.paid) throw new MarketplaceError(409, 'Choose a paid creator plan before creating a product.');
+  const { subscriptionId, paymentId, periodStart, periodEnd, quotaKey, productLimit, unlimited } = entitlement;
+  return rpc<InternalListing>('listing_write', next.id, { expected: previous, record: next, owner: creator.userId, limit: entitlement.paid ? 2147483647 : 0, ...(entitlement.paid ? { quota: { subscriptionId, paymentId, periodStart, periodEnd, quotaKey, productLimit, unlimited } } : {}), product: asProduct(next), audit: audit(actorId, action, next.id, reviewReason) });
+}
 
 /** Never returns encrypted KYC, private file locations or provider account references. */
 export function annotatePlatformProducts<T extends Product>(products: T[]): T[] { return products.map(product => product.sellerId ? product : { ...product, sellerId: 'booyahstudio', sellerName: BUSINESS.name, creatorSlug: 'booyahstudio', isPlatformProduct: true, membershipEligible: false }); }
@@ -107,6 +126,7 @@ export async function prepareCreatorOrder(items: any[], provider: MarketplaceGat
   const sellerIds = new Set(products.map(product => product.sellerId || 'booyahstudio'));
   if (sellerIds.size !== 1) throw new MarketplaceError(409, 'Please check out separately for each creator.');
   const sellerId = [...sellerIds][0]; if (sellerId === 'booyahstudio') return undefined;
+  try { assertMarketplaceReserveCapability(provider); } catch (error) { throw new MarketplaceError(409, (error as Error).message); }
   const creator = await Store.get<InternalCreator>(`marketplace/creators/${sellerId}`);
   if (!creator || creator.status !== 'approved') throw new MarketplaceError(409, 'This creator is not currently accepting purchases.');
   if (!hasCurrentAgreement(creator)) throw new MarketplaceError(409, 'This creator is reviewing the current marketplace agreement. Please try again later.');
@@ -116,10 +136,9 @@ export async function prepareCreatorOrder(items: any[], provider: MarketplaceGat
   const listings = await Promise.all(products.map(product => listingRecord(product.id, creator.id)));
   if (listings.some(listing => listing.status !== 'active' || !listing.file.published)) throw new MarketplaceError(409, 'One of these products is no longer available.');
   const amount = totalPaise ?? items.reduce((sum, item, index) => sum + (Number.isSafeInteger(item.paidAmountPaise) ? item.paidAmountPaise : Math.round(products[index].price * 100) * (item.quantity || 1)), 0);
-  const itemCount = items.reduce((count, item) => { const quantity = Number(item.quantity ?? 1); if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100) throw new MarketplaceError(400, 'Invalid product quantity.'); return count + quantity; }, 0);
-  if (!Number.isSafeInteger(amount) || amount <= 0 || itemCount < 1 || itemCount > 1000) throw new MarketplaceError(400, 'Invalid checkout amount.');
-  const commissionPaise = Math.min(amount, itemCount * CREATOR_COMMISSION_PER_ITEM_PAISE);
-  return { sellerId: creator.id, sellerName: creator.displayName, creatorSlug: creator.slug, commissionModel: 'flat_per_item', commissionPerItemPaise: CREATOR_COMMISSION_PER_ITEM_PAISE, itemCount, commissionBps: 0, grossPaise: amount, commissionPaise, sellerPaise: amount - commissionPaise, provider, providerAccountId: details.account.reference, agreementVersion: creator.agreementVersion };
+  let fee;
+  try { fee = fixedCommissionForItems(items, amount); } catch (error) { throw new MarketplaceError(400, (error as Error).message); }
+  return { sellerId: creator.id, sellerName: creator.displayName, creatorSlug: creator.slug, ...fee, provider, providerAccountId: details.account.reference, agreementVersion: creator.agreementVersion, reservePolicyVersion: MARKETPLACE_RESERVE_POLICY_VERSION };
 }
 export async function fulfillCreatorOrder(order: { id: string; marketplace?: unknown }): Promise<any> { if (!identifier.safeParse(order?.id).success) throw new MarketplaceError(400, 'Invalid order.'); if (!order.marketplace) return null; return rpc('ledger_sync', order.id, null); }
 /** Internal only: caller must not serialize or log the decrypted KYC/provider refs. */
@@ -155,21 +174,36 @@ async function privateFile(listing: InternalListing, staging: boolean) {
   if (!path || !listing.file.uploaded) throw new MarketplaceError(409, 'Upload a private ZIP first.');
   const bucket = supabaseAdmin().storage.from('products');
   const info = await bucket.info(path);
-  if (info.error || !info.data || Number(info.data.size) !== listing.file.size) throw new MarketplaceError(409, 'The private ZIP is missing or its size changed. Upload it again.');
+  if (info.error || !info.data || Number(info.data.size) !== listing.file.size || Number(info.data.size) > CREATOR_UPLOAD_LIMIT_BYTES) throw new MarketplaceError(409, 'The private ZIP is missing, changed or larger than 10 MB. Upload it again.');
   const signed = await bucket.createSignedUrl(path, 60, { download: `${listing.slug}.zip` });
   if (signed.error || !signed.data?.signedUrl) throw new MarketplaceError(503, 'Could not open the private ZIP for review.');
   await verifyStagedZipHeader(signed.data.signedUrl);
   return { bucket, path, signedUrl: signed.data.signedUrl };
 }
+async function attachCreatorArchive(previous: InternalListing, creator: InternalCreator, actorId: string, archive: { path: string; fileName: string; size: number; sha256: string }) {
+  // A validated private copy becomes the sole delivery source. Do not retain an old
+  // externally-forwarded URL that could override the paid private download later.
+  const { externalFileUrl: _legacyExternalUrl, ...prior } = previous as InternalListing & { externalFileUrl?: string };
+  const next = { ...prior, status: 'draft' as const, file: { uploaded: true, fileName: archive.fileName, size: archive.size, uploadedAt: now(), stagingPath: archive.path, sha256: archive.sha256, published: false }, fileSize: `${(archive.size / (1024 * 1024)).toFixed(2)} MB`, updatedAt: now(), revision: previous.revision + 1 };
+  const saved = await writeListing(previous, next, creator, actorId, 'LISTING_ZIP_UPLOADED');
+  if (previous.file.stagingPath && previous.file.stagingPath !== archive.path && !previous.file.published) await supabaseAdmin().storage.from('products').remove([previous.file.stagingPath]).catch(() => undefined);
+  return saved;
+}
+function requireReplaceableFile(creator: InternalCreator, listing: InternalListing) {
+  if (!hasCurrentAgreement(creator)) throw new MarketplaceError(409, 'Accept the current creator agreement before uploading a file.');
+  if (!creator.encryptedKyc && !creator.kyc?.panLast4) throw new MarketplaceError(409, 'Complete your private seller PAN details before uploading products. Buyers do not need PAN.');
+  if (listing.status === 'pending' || listing.file.published) throw new MarketplaceError(409, 'A reviewed or published ZIP cannot be replaced here. Create a new listing for a different archive.');
+}
 
 export function registerCreatorMarketplaceRoutes(app: Express, auth: RequestHandler, admin: RequestHandler, limiter: RequestHandler) {
   const publicRouter = Router(), creatorRouter = Router(), adminRouter = Router();
-  const hasDatabase = () => Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const hasDatabase = isSupabaseAdminConfigured;
   publicRouter.get('/config', handle(async (_req, res) => {
-    if (!hasDatabase()) return res.json({ success: true, settings: { acceptingCreators: false, commissionPaisePerItem: CREATOR_COMMISSION_PER_ITEM_PAISE, maxUploadBytes: CREATOR_UPLOAD_LIMIT_BYTES }, companyCreator: { ...COMPANY_CREATOR, productCount: PRODUCTS.filter(p => p.status === 'active').length }, creatorPlans: [], agreement: CREATOR_AGREEMENT, categories: MARKETPLACE_CATEGORIES });
-    const { getCreatorPlanSummaries } = await import('./subscriptions');
+    if (!hasDatabase()) return res.json({ success: true, settings: { acceptingCreators: false, commissionBps: 0, commissionModel: 'fixed_per_item', unitCommissionPaise: 2000, maxUploadBytes: CREATOR_UPLOAD_LIMIT_BYTES }, companyCreator: { ...COMPANY_CREATOR, productCount: PRODUCTS.filter(p => p.status === 'active').length }, creatorPlans: [], agreement: CREATOR_AGREEMENT, categories: MARKETPLACE_CATEGORIES });
+    const [{ getGatewaySettings }, { getCreatorPlanSummaries }] = await Promise.all([import('./gatewayControl'), import('./subscriptions')]);
+    const settings = await getGatewaySettings();
     const platformProducts = annotatePlatformProducts(await Store.getAllProducts()).filter(p => p.sellerId === 'booyahstudio' && p.status === 'active');
-    res.json({ success: true, settings: { acceptingCreators: true, commissionPaisePerItem: CREATOR_COMMISSION_PER_ITEM_PAISE, maxUploadBytes: CREATOR_UPLOAD_LIMIT_BYTES }, companyCreator: { ...COMPANY_CREATOR, productCount: platformProducts.length }, creatorPlans: await getCreatorPlanSummaries(), agreement: CREATOR_AGREEMENT, categories: MARKETPLACE_CATEGORIES });
+    res.json({ success: true, settings: { acceptingCreators: true, commissionBps: 0, commissionModel: 'fixed_per_item', unitCommissionPaise: 2000, maxUploadBytes: CREATOR_UPLOAD_LIMIT_BYTES }, companyCreator: { ...COMPANY_CREATOR, productCount: platformProducts.length }, creatorPlans: await getCreatorPlanSummaries(), agreement: CREATOR_AGREEMENT, categories: MARKETPLACE_CATEGORIES });
   }));
   publicRouter.get('/creators', handle(async (_req, res) => {
     if (!hasDatabase()) return res.json({ success: true, creators: [{ ...COMPANY_CREATOR, productCount: PRODUCTS.filter(p => p.status === 'active').length }] });
@@ -194,14 +228,22 @@ export function registerCreatorMarketplaceRoutes(app: Express, auth: RequestHand
     const creator = await creatorRecordByUser(req.userId);
     if (!creator) return res.json({ success: true, creator: null, products: [], orders: [], summary: summarize([], [], [], await creatorLimit(req.userId)) });
     const state = await allMarketplace(), products = state.listings.filter(p => p.sellerId === creator.id), orders = state.orders.filter(o => o.marketplace.sellerId === creator.id), ledger = state.ledger.filter(l => l.sellerId === creator.id);
+    const entitlement = await creatorEntitlement(req.userId);
+    const usage = entitlement.quotaKey ? await Store.get<any>(`marketplace/listingCreations/${req.userId}/${entitlement.quotaKey}`) : null;
+    const createdThisPeriod = Number(usage?.created || 0);
     const membershipEarnings = await (await import('./subscriptions')).getCreatorMembershipEarnings(creator.id);
-    res.json({ success: true, creator: safeCreator(creator), products: products.map(safeListing), orders: orders.map(o => safeOrder(o, ledger.find(l => l.orderId === o.id))), membershipEarnings, summary: { ...summarize(orders, ledger, products, await creatorLimit(req.userId)), membershipGrossPaise: membershipEarnings.grossPaise, membershipCommissionPaise: membershipEarnings.commissionPaise, membershipPayablePaise: membershipEarnings.payablePaise, membershipRefundPaise: membershipEarnings.refundPaise } });
+    const analytics = entitlement.features.advancedAnalytics ? Array.from({ length: 30 }, (_, index) => {
+      const day = new Date(Date.now() - (29 - index) * 86400000).toISOString().slice(0, 10);
+      const paid = orders.filter(order => order.paymentEnvironment === 'live' && order.transactionId && String(order.paymentVerifiedAt || '').slice(0, 10) === day);
+      return { day, paidOrders: paid.length, grossPaise: paid.reduce((sum, order) => sum + Math.round(Number(order.total) * 100), 0) };
+    }) : undefined;
+    res.json({ success: true, creator: safeCreator(creator), products: products.map(safeListing), orders: orders.map(o => safeOrder(o, ledger.find(l => l.orderId === o.id))), membershipEarnings, entitlement, ...(analytics ? { analytics } : {}), summary: { ...summarize(orders, ledger, products, entitlement.productLimit), createdThisPeriod, unlimited: entitlement.unlimited, remainingCreatesThisPeriod: entitlement.productLimit === null ? null : Math.max(0, entitlement.productLimit - createdThisPeriod), periodStart: entitlement.periodStart, periodEnd: entitlement.periodEnd, membershipGrossPaise: membershipEarnings.grossPaise, membershipCommissionPaise: membershipEarnings.commissionPaise, membershipPayablePaise: membershipEarnings.payablePaise, membershipRefundPaise: membershipEarnings.refundPaise } });
   }));
   creatorRouter.post('/', handle(async (req, res) => {
     const input = parse(onboardingSchema, req.body), createdAt = now(), creatorId = `cr_${id()}`;
-    const { legalName, phone, adult: _adult, ownsRights: _rights, acceptAgreement: _accept, agreementVersion: _version, ...profile } = input;
+    const { legalName, phone, pan, kycConsent: _kycConsent, adult: _adult, ownsRights: _rights, acceptAgreement: _accept, agreementVersion: _version, ...profile } = input;
     const agreementAcceptance = { userId: req.userId, acceptedAt: createdAt, version: CREATOR_AGREEMENT.version, hash: agreementHash, policyVersion, ip: String(req.ip || '').slice(0, 80), userAgent: String(req.get('user-agent') || '').slice(0, 500) };
-    const record: InternalCreator = { ...profile, id: creatorId, userId: req.userId, status: 'pending', createdAt, updatedAt: createdAt, agreementVersion: CREATOR_AGREEMENT.version, agreementAcceptance, kyc: { status: 'not_submitted' }, providerAccounts: {}, encryptedIdentity: seal({ legalName, phone }, `creator-identity:${creatorId}`) };
+    const record: InternalCreator = { ...profile, id: creatorId, userId: req.userId, status: 'pending', createdAt, updatedAt: createdAt, agreementVersion: CREATOR_AGREEMENT.version, agreementAcceptance, kyc: { status: 'not_submitted', panLast4: pan.slice(-4) }, providerAccounts: {}, encryptedIdentity: seal({ legalName, phone, pan, consentedAt: createdAt }, `creator-identity:${creatorId}`) };
     const creator = await rpc<InternalCreator>('creator_create', req.userId, { record, agreementSnapshot, audit: audit(req.userId, 'CREATOR_REGISTERED', creatorId) });
     res.status(201).json({ success: true, creator: safeCreator(creator), message: 'Your creator profile is ready for review.' });
   }));
@@ -230,57 +272,71 @@ export function registerCreatorMarketplaceRoutes(app: Express, auth: RequestHand
   creatorRouter.get('/listings', handle(async (req, res) => { const creator = await requireCreator(req.userId, true); const listings = Object.values(await Store.get<Record<string, InternalListing>>('marketplace/listings') || {}).filter(l => l.sellerId === creator.id); res.json({ success: true, listings: listings.map(safeListing) }); }));
   creatorRouter.post('/listings', handle(async (req, res) => {
     const creator = await requireCreator(req.userId), input = parse(listingSchema, req.body), listingId = `mk_${id()}`, timestamp = now();
-    const { ownsRights: _rights, requirements, externalFileUrl, ...fields } = input;
-    const record: InternalListing = { ...fields, ...(externalFileUrl ? { externalFileUrl } : {}), requirements: requirements.split(/\r?\n/).map(v => v.trim()).filter(Boolean), id: listingId, slug: `${input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 55) || 'digital-product'}-${listingId.slice(-8)}`, sellerId: creator.id, sellerName: creator.displayName, creatorSlug: creator.slug, categoryLabel: input.category, productType: 'DOWNLOAD', fileFormat: 'ZIP', status: 'draft', isPlatformProduct: false, file: { uploaded: false }, createdAt: timestamp, updatedAt: timestamp, revision: 1 };
+    const { ownsRights: _rights, requirements, ...fields } = input;
+    const record: InternalListing = { ...fields, requirements: requirements.split(/\r?\n/).map(v => v.trim()).filter(Boolean), id: listingId, slug: `${input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 55) || 'digital-product'}-${listingId.slice(-8)}`, sellerId: creator.id, sellerName: creator.displayName, creatorSlug: creator.slug, categoryLabel: input.category, productType: 'DOWNLOAD', fileFormat: 'ZIP', status: 'draft', isPlatformProduct: false, file: { uploaded: false }, createdAt: timestamp, updatedAt: timestamp, revision: 1 };
     res.status(201).json({ success: true, listing: safeListing(await writeListing(null, record, creator, req.userId, 'LISTING_CREATED')) });
   }));
   creatorRouter.patch('/listings/:id', handle(async (req, res) => {
     const creator = await requireCreator(req.userId), previous = await listingRecord(req.params.id, creator.id);
-    const input = parse(listingSchema.partial().strict(), req.body), { ownsRights: _rights, requirements, externalFileUrl, ...fields } = input;
+    // Zod defaults still run through .partial(); PATCH must preserve omitted fields.
+    const parsed = parse(listingSchema.partial().strict(), req.body);
+    const input = Object.fromEntries(Object.entries(parsed).filter(([key]) => Object.hasOwn(req.body, key))) as Partial<z.infer<typeof listingSchema>>;
+    const { ownsRights: _rights, requirements, ...fields } = input;
     if (!Object.keys(fields).length && requirements === undefined) throw new MarketplaceError(400, 'Choose a listing field to update.');
     if (previous.status === 'pending') throw new MarketplaceError(409, 'This listing is under review. Please wait for the review result.');
-    if (externalFileUrl && previous.file.uploaded) throw new MarketplaceError(409, 'This listing already has a private ZIP. Create a new draft to use an external delivery link instead.');
-    const next = { ...previous, ...fields, ...(externalFileUrl === undefined ? {} : { externalFileUrl: externalFileUrl || null }), ...(requirements === undefined ? {} : { requirements: requirements.split(/\r?\n/).map(v => v.trim()).filter(Boolean) }), categoryLabel: fields.category || previous.categoryLabel, status: 'draft' as const, reviewReason: undefined, updatedAt: now(), revision: previous.revision + 1 };
+    const next = { ...previous, ...fields, ...(requirements === undefined ? {} : { requirements: requirements.split(/\r?\n/).map(v => v.trim()).filter(Boolean) }), categoryLabel: fields.category || previous.categoryLabel, status: 'draft' as const, reviewReason: undefined, updatedAt: now(), revision: previous.revision + 1 };
     res.json({ success: true, listing: safeListing(await writeListing(previous, next, creator, req.userId, 'LISTING_UPDATED')) });
   }));
-  creatorRouter.post('/listings/:id/upload', handle(async (req, res) => {
-    const creator = await requireCreator(req.userId), previous = await listingRecord(req.params.id, creator.id);
-    const input = parse(z.object({ fileName: z.string().trim().min(5).max(200).regex(/^[^\\/\r\n]+\.zip$/i), size: z.number().int().min(22).max(CREATOR_UPLOAD_LIMIT_BYTES) }).strict(), req.body);
-    if (previous.status === 'pending' || previous.file.published) throw new MarketplaceError(409, 'A reviewed or published ZIP cannot be replaced here. Create a new listing for a different archive.');
-    if (previous.externalFileUrl) throw new MarketplaceError(409, 'Remove the external delivery link from this draft before uploading a private ZIP.');
-    const uploadId = id(), stagingPath = `_creators/${creator.id}/${previous.id}/${uploadId}.zip`, bucket = supabaseAdmin().storage.from('products');
-    const { data, error } = await bucket.createSignedUploadUrl(stagingPath, { upsert: false });
-    if (error || !data?.signedUrl) throw new MarketplaceError(503, 'A private upload could not be prepared. Please retry.');
-    const expiresAt = Date.now() + 30 * 60_000;
-    await Store.set(`marketplace/creatorUploads/${uploadId}`, { uploadId, creatorId: creator.id, listingId: previous.id, stagingPath, fileName: input.fileName, expectedSize: input.size, expiresAt, status: 'pending' });
-    res.set('Cache-Control', 'private, no-store').json({ success: true, upload: { uploadId, signedUrl: data.signedUrl, method: 'PUT', expiresAt } });
+  creatorRouter.post('/listings/:id/upload-intent', handle(async (req, res) => {
+    const input = parse(z.object({ fileName: z.string().max(200), size: z.number().int().min(22).max(CREATOR_UPLOAD_LIMIT_BYTES) }).strict(), req.body);
+    validateCreatorFileName(input.fileName);
+    const creator = await requireCreator(req.userId), listing = await listingRecord(req.params.id, creator.id);
+    requireReplaceableFile(creator, listing);
+    const { ticket, signedUrl } = await createCreatorUploadTicket({ userId: req.userId, creatorId: creator.id, listingId: listing.id, revision: listing.revision, ...input });
+    res.json({ success: true, uploadId: ticket.id, uploadUrl: signedUrl, uploadOrigin: new URL(signedUrl).origin, expiresAt: ticket.expiresAt, maxBytes: CREATOR_UPLOAD_LIMIT_BYTES, method: 'PUT', location: 'Private Supabase Storage · products bucket' });
   }));
-  creatorRouter.post('/listings/:id/upload/complete', handle(async (req, res) => {
-    const creator = await requireCreator(req.userId), previous = await listingRecord(req.params.id, creator.id);
+  creatorRouter.post('/listings/:id/upload-complete', handle(async (req, res) => {
     const input = parse(z.object({ uploadId: z.string().regex(/^[a-f0-9]{32}$/) }).strict(), req.body);
-    const uploadKey = `marketplace/creatorUploads/${input.uploadId}`, ticket = await Store.get<any>(uploadKey);
-    if (!ticket || ticket.creatorId !== creator.id || ticket.listingId !== previous.id || ticket.status !== 'pending') throw new MarketplaceError(404, 'Private upload not found. Please prepare it again.');
-    const bucket = supabaseAdmin().storage.from('products');
-    if (ticket.expiresAt < Date.now()) { await bucket.remove([ticket.stagingPath]).catch(() => undefined); throw new MarketplaceError(410, 'The private upload expired. Please prepare it again.'); }
-    if (previous.status === 'pending' || previous.file.published) throw new MarketplaceError(409, 'A reviewed or published ZIP cannot be replaced here.');
-    const info = await bucket.info(ticket.stagingPath);
-    if (info.error || !info.data || Number(info.data.size) !== ticket.expectedSize || Number(info.data.size) > CREATOR_UPLOAD_LIMIT_BYTES) throw new MarketplaceError(400, 'The uploaded file is missing or does not match the selected file size.');
-    const download = await bucket.download(ticket.stagingPath);
-    if (download.error || !download.data) throw new MarketplaceError(503, 'The uploaded file could not be verified. Please retry.');
-    const bytes = Buffer.from(await download.data.arrayBuffer());
-    if (bytes.length < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 3 || bytes[3] !== 4) { await bucket.remove([ticket.stagingPath]).catch(() => undefined); throw new MarketplaceError(400, 'Upload a non-empty ZIP archive.'); }
+    const creator = await requireCreator(req.userId), listing = await listingRecord(req.params.id, creator.id);
+    const ticket = await getCreatorUploadTicket(input.uploadId, req.userId, creator.id, listing.id);
+    if (listing.file.stagingPath === ticket.path && listing.file.uploaded) return res.json({ success: true, listing: safeListing(listing), duplicate: true });
+    requireReplaceableFile(creator, listing);
+    if (listing.revision !== ticket.revision) throw new MarketplaceError(409, 'This draft changed during upload. Save it and choose the file again.');
+    const archive = await verifyCreatorStagedFile(ticket);
+    const saved = await attachCreatorArchive(listing, creator, req.userId, { ...archive, fileName: ticket.fileName });
+    res.json({ success: true, listing: safeListing(saved), message: 'Your ZIP is stored privately in Supabase. Submit the listing for review before selling.' });
+  }));
+  creatorRouter.post('/listings/:id/import-link', handle(async (req, res) => {
+    const input = parse(z.object({ url: z.string().max(4000), fileName: z.string().max(200).default('product.zip') }).strict(), req.body);
+    validateCreatorFileName(input.fileName);
+    const creator = await requireCreator(req.userId), listing = await listingRecord(req.params.id, creator.id);
+    requireReplaceableFile(creator, listing);
+    const bytes = await importCreatorZip(input.url), verified = validateCreatorZip(bytes);
+    const { ticket } = await createCreatorUploadTicket({ userId: req.userId, creatorId: creator.id, listingId: listing.id, revision: listing.revision, fileName: input.fileName, size: verified.size });
+    const result = await supabaseAdmin().storage.from('products').upload(ticket.path, bytes, { contentType: 'application/zip', upsert: false, cacheControl: '0' });
+    if (result.error) throw new CreatorUploadError('Could not copy the linked file into private Storage. Please upload the ZIP directly.', 503);
+    const saved = await attachCreatorArchive(listing, creator, req.userId, { path: ticket.path, fileName: ticket.fileName, ...verified });
+    res.json({ success: true, listing: safeListing(saved), message: 'The linked ZIP was copied into private Supabase Storage. Buyers will receive protected access to this copy after verified payment.' });
+  }));
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: PROXIED_UPLOAD_LIMIT_BYTES, files: 1, fields: 0 } }).single('file');
+  creatorRouter.post('/listings/:id/upload', (req, res, next) => upload(req, res, error => error ? res.status(400).json({ success: false, message: 'Choose one ZIP file up to 4 MB.' }) : next()), handle(async (req, res) => {
+    const creator = await requireCreator(req.userId), previous = await listingRecord(req.params.id, creator.id), file = req.file;
+    if (previous.status === 'pending' || previous.file.published) throw new MarketplaceError(409, 'A reviewed or published ZIP cannot be replaced here. Create a new listing for a different archive.');
+    if (!file || !/\.zip$/i.test(file.originalname) || /[\\/\r\n]/.test(file.originalname) || file.size < 22 || file.buffer[0] !== 0x50 || file.buffer[1] !== 0x4b || file.buffer[2] !== 3 || file.buffer[3] !== 4) throw new MarketplaceError(400, 'Upload a non-empty ZIP archive.');
+    const stagingPath = `_creators/${creator.id}/${previous.id}/${id()}.zip`, bucket = supabaseAdmin().storage.from('products');
+    const result = await bucket.upload(stagingPath, file.buffer, { contentType: 'application/zip', upsert: false, cacheControl: '0' });
+    if (result.error) throw new MarketplaceError(503, 'The private upload failed. Please try again.');
     try {
-      const next = { ...previous, file: { uploaded: true, fileName: ticket.fileName, size: bytes.length, uploadedAt: now(), stagingPath: ticket.stagingPath, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), published: false }, fileSize: `${(bytes.length / (1024 * 1024)).toFixed(2)} MB`, updatedAt: now(), revision: previous.revision + 1 };
+      const next = { ...previous, file: { uploaded: true, fileName: file.originalname.slice(0, 200), size: file.size, uploadedAt: now(), stagingPath, sha256: crypto.createHash('sha256').update(file.buffer).digest('hex'), published: false }, fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`, updatedAt: now(), revision: previous.revision + 1 };
       const saved = await writeListing(previous, next, creator, req.userId, 'LISTING_ZIP_UPLOADED');
-      await Store.set(uploadKey, { ...ticket, status: 'completed', completedAt: now() });
       if (previous.file.stagingPath) await bucket.remove([previous.file.stagingPath]).catch(() => undefined);
-      res.set('Cache-Control', 'private, no-store').json({ success: true, listing: safeListing(saved), message: 'Private ZIP uploaded. Submit the listing for review when it is ready.' });
-    } catch (error) { await bucket.remove([ticket.stagingPath]).catch(() => undefined); throw error; }
+      res.json({ success: true, listing: safeListing(saved), message: 'Private ZIP uploaded. Submit the listing for review when it is ready.' });
+    } catch (error) { await bucket.remove([stagingPath]).catch(() => undefined); throw error; }
   }));
   creatorRouter.post('/listings/:id/submit', handle(async (req, res) => {
     const creator = await requireCreator(req.userId), previous = await listingRecord(req.params.id, creator.id);
-    if (!['draft', 'rejected'].includes(previous.status) || Boolean(previous.file.uploaded) === Boolean(previous.externalFileUrl)) throw new MarketplaceError(409, 'Choose either one private ZIP upload or one direct HTTPS file link before submitting.');
-    if (previous.file.uploaded) await privateFile(previous, true);
+    if (!['draft', 'rejected'].includes(previous.status) || !previous.file.uploaded) throw new MarketplaceError(409, 'Complete your listing and upload a private ZIP before submitting.');
+    await privateFile(previous, true);
     const next = { ...previous, status: 'pending' as const, reviewReason: undefined, updatedAt: now(), revision: previous.revision + 1 };
     res.json({ success: true, listing: safeListing(await writeListing(previous, next, creator, req.userId, 'LISTING_SUBMITTED')), message: 'Your listing has been submitted for review.' });
   }));
@@ -311,18 +367,11 @@ export function registerCreatorMarketplaceRoutes(app: Express, auth: RequestHand
     const status = ({ approve: 'approved', suspend: 'suspended', reject: 'rejected' } as const)[input.action];
     if (status === 'approved' && !publicBusinessSchema.safeParse(previous.publicBusiness).success) throw new MarketplaceError(409, 'Complete and review the public business identity, address, support and grievance details before approving this creator.');
     if (status === 'approved' && (!hasCurrentAgreement(previous) || !await Store.get(`marketplace/agreementSnapshots/${previous.agreementVersion}`))) throw new MarketplaceError(409, 'The creator must accept the current creator agreement before approval.');
-    const next = { ...previous, status, ...(status === 'suspended' ? { suspendedAt: now() } : status === 'approved' ? { suspendedAt: undefined } : {}), reviewReason: input.reason, updatedAt: now() };
-    const updated = await writeCreator(previous, next, audit(req.userId, `CREATOR_${status.toUpperCase()}`, creatorId, input.reason));
-    if (status === 'suspended' || status === 'approved') {
-      const state = await allMarketplace();
-      for (const entry of state.ledger.filter(item => item.sellerId === creatorId)) await fulfillCreatorOrder({ id: entry.orderId, marketplace: true });
-    }
-    res.json({ success: true, creator: safeCreator(updated), message: 'Profile moderation updated. Payment-provider verification and bank settlement are separate requirements.' });
+    const next = { ...previous, status, reviewReason: input.reason, updatedAt: now() };
+    res.json({ success: true, creator: safeCreator(await writeCreator(previous, next, audit(req.userId, `CREATOR_${status.toUpperCase()}`, creatorId, input.reason))), message: 'Profile moderation updated. Payment-provider verification is a separate requirement.' });
   }));
   adminRouter.get('/listings/:id/review-file', handle(async (req, res) => {
-    const listing = await listingRecord(req.params.id);
-    if (listing.externalFileUrl) return res.json({ success: true, downloadUrl: listing.externalFileUrl, validation: 'External link. Review the destination, file, licence and malware before approval.' });
-    const file = await privateFile(listing, true);
+    const listing = await listingRecord(req.params.id), file = await privateFile(listing, true);
     res.json({ success: true, downloadUrl: file.signedUrl, expiresAt: Date.now() + 60000, validation: 'ZIP header and size only. Review the archive contents, licence and malware before approval.' });
   }));
   adminRouter.patch('/listings/:id', handle(async (req, res) => {
@@ -330,9 +379,7 @@ export function registerCreatorMarketplaceRoutes(app: Express, auth: RequestHand
     const creator = await Store.get<InternalCreator>(`marketplace/creators/${previous.sellerId}`); if (!creator) throw new MarketplaceError(404, 'Creator not found.');
     if (input.action === 'approve' && (previous.status !== 'pending' || creator.status !== 'approved' || input.reviewed !== true)) throw new MarketplaceError(409, 'Approve the creator profile and review the submitted archive before approving this listing.');
     let published = Boolean(previous.file.published);
-    if (input.action === 'approve' && previous.externalFileUrl) {
-      published = true;
-    } else if (input.action === 'approve') {
+    if (input.action === 'approve') {
       const file = await privateFile(previous, true);
       if (!published) {
         const copy = await file.bucket.copy(file.path, `${previous.id}.zip`);
@@ -346,8 +393,10 @@ export function registerCreatorMarketplaceRoutes(app: Express, auth: RequestHand
       }
     }
     const status = ({ approve: 'active', reject: 'rejected', archive: 'archived' } as const)[input.action];
-    const next = { ...previous, status, file: { ...previous.file, ...(input.action === 'approve' && previous.externalFileUrl ? { uploaded: true, fileName: 'External direct link', size: 0, uploadedAt: previous.updatedAt } : {}), published }, reviewReason: input.reason, updatedAt: now(), revision: previous.revision + 1 };
-    res.json({ success: true, listing: safeListing(await writeListing(previous, next, creator, req.userId, `LISTING_${status.toUpperCase()}`, input.reason)) });
+    const next = { ...previous, status, file: { ...previous.file, published }, reviewReason: input.reason, updatedAt: now(), revision: previous.revision + 1 };
+    const saved = await writeListing(previous, next, creator, req.userId, `LISTING_${status.toUpperCase()}`, input.reason);
+    if (input.action === 'approve' && saved.file.published && previous.file.stagingPath) await supabaseAdmin().storage.from('products').remove([previous.file.stagingPath]).catch(() => undefined);
+    res.json({ success: true, listing: safeListing(saved) });
   }));
   app.use('/api/marketplace', publicRouter);
   app.use('/api/marketplace/me', creatorRouter);
